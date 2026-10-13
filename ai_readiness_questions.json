@@ -1,0 +1,432 @@
+
+{ 
+  "questions": [{
+    "id": "usecase",
+    "name": "AI Use-Case & Business Readiness",
+    "game_training": "archery",
+    "section_animation": {
+      "0": "arrow completely misses the target, the knight cries",
+      "1-2": "arrow hits the target, but not the bullseye",
+      "3-4": "arrow hits the bullseye and the knight celebrates"
+    },
+    "description": "Are you solving the right problems with AI?",
+    "icon": "🎯",
+    "questions": [
+      {
+        "text": "Q1. Is AI a strategic priority in your business today?",
+        "options": [
+          {
+            "text": "AI is not on our agenda yet",
+            "score": 0
+          },
+          {
+            "text": "AI is discussed, but not prioritized",
+            "score": 1
+          },
+          {
+            "text": "AI is included in strategy, but loosely defined",
+            "score": 2
+          },
+          {
+            "text": "AI has a defined roadmap with clear business goals",
+            "score": 3
+          },
+          {
+            "text": "AI is a core pillar with executive sponsorship",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q2. How clearly are your AI use cases tied to business outcomes?",
+        "options": [
+          {
+            "text": "No defined AI use cases",
+            "score": 0
+          },
+          {
+            "text": "Ideas exist, but not linked to measurable outcomes",
+            "score": 1
+          },
+          {
+            "text": "Some use cases linked to efficiency or cost savings",
+            "score": 2
+          },
+          {
+            "text": "Clear use cases tied to revenue, productivity, or risk",
+            "score": 3
+          },
+          {
+            "text": "Use cases are prioritized, measured, and reviewed regularly",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q3. Do you have an accountable owner for AI initiatives?",
+        "options": [
+          {
+            "text": "No clear owner",
+            "score": 0
+          },
+          {
+            "text": "Responsibility is shared informally across teams",
+            "score": 1
+          },
+          {
+            "text": "A sponsor exists, but AI is not their primary focus",
+            "score": 2
+          },
+          {
+            "text": "A dedicated product owner or AI lead is accountable",
+            "score": 3
+          },
+          {
+            "text": "Clear ownership with decision rights and budget authority",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q4. How AI-ready are your core processes and data today?",
+        "options": [
+          {
+            "text": "Data is fragmented and mostly manual",
+            "score": 0
+          },
+          {
+            "text": "Some data is digitized, but inconsistent",
+            "score": 1
+          },
+          {
+            "text": "Key processes are standardized, data is usable",
+            "score": 2
+          },
+          {
+            "text": "Data is clean, structured, and regularly used for decisions",
+            "score": 3
+          },
+          {
+            "text": "Processes are designed with AI automation in mind",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q5. Where are you in your AI experimentation journey?",
+        "options": [
+          {
+            "text": "No AI experimentation yet",
+            "score": 0
+          },
+          {
+            "text": "Isolated experiments or proofs of concept",
+            "score": 1
+          },
+          {
+            "text": "Pilots running in selected teams",
+            "score": 2
+          },
+          {
+            "text": "AI solutions live in production",
+            "score": 3
+          },
+          {
+            "text": "AI solutions are scaling across the organization",
+            "score": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "talent",
+    "name": "AI Talent & Capability Readiness",
+    "game_training": "boxing",
+    "section_animation": {
+      "0": "knight hurts hand when punching the bag",
+      "1-2": "kingt punches bag, sweats profusely",
+      "3-4": "knight punches bag and the bag bursts"
+    },
+    "description": "Do you have the people to make AI real?",
+    "icon": "⭐",
+    "questions": [
+      {
+        "text": "Q1. How clearly are AI-related roles defined in your organization?",
+        "options": [
+          {
+            "text": "No AI-related roles defined",
+            "score": 0
+          },
+          {
+            "text": "Roles exist but responsibilities are unclear",
+            "score": 1
+          },
+          {
+            "text": "Some AI roles defined, coverage is incomplete",
+            "score": 2
+          },
+          {
+            "text": "Clear AI roles with defined responsibilities",
+            "score": 3
+          },
+          {
+            "text": "AI roles mapped across delivery, governance, and scale",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q2. How long does it typically take to fill advanced AI or data roles?",
+        "options": [
+          {
+            "text": "6+ months",
+            "score": 0
+          },
+          {
+            "text": "4–5 months",
+            "score": 1
+          },
+          {
+            "text": "2–3 months",
+            "score": 2
+          },
+          {
+            "text": "Within 2 months",
+            "score": 3
+          },
+          {
+            "text": "We proactively build talent before demand peaks",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q3. How confident are you in assessing AI talent during interviews?",
+        "options": [
+          {
+            "text": "Not confident at all",
+            "score": 0
+          },
+          {
+            "text": "Some confidence, but largely intuition-based",
+            "score": 1
+          },
+          {
+            "text": "Confident in technical skills, less so in application",
+            "score": 2
+          },
+          {
+            "text": "Confident in both skills and real-world use cases",
+            "score": 3
+          },
+          {
+            "text": "We use structured assessments and project-based evaluation",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q4. How do you currently build AI capabilities internally?",
+        "options": [
+          {
+            "text": "No AI upskilling initiatives",
+            "score": 0
+          },
+          {
+            "text": "Ad hoc courses or self-learning only",
+            "score": 1
+          },
+          {
+            "text": "Some structured training, limited application",
+            "score": 2
+          },
+          {
+            "text": "Structured upskilling with real project exposure",
+            "score": 3
+          },
+          {
+            "text": "Continuous upskilling with mentoring and deployment",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q5. Which best describes your AI talent strategy today?",
+        "options": [
+          {
+            "text": "Hire externally whenever there is a need",
+            "score": 0
+          },
+          {
+            "text": "Primarily hire, limited internal development",
+            "score": 1
+          },
+          {
+            "text": "Mix of hiring and internal upskilling",
+            "score": 2
+          },
+          {
+            "text": "Deliberate build–buy–deploy strategy",
+            "score": 3
+          },
+          {
+            "text": "Capability-first model aligned to business roadmap",
+            "score": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "execution",
+    "name": "AI Execution, Adoption & Sustainability",
+    "game_training": "swordsmanship",
+    "section_animation": {
+      "0": "wooden sword breaks on training dummy and the knight cries",
+      "1-2": "wooden sword is wielded with some skill but is sweating profusely and struggling",
+      "3-4": "wooden sword is wielded with mastery, the dummy breaks and knight celebrates"
+    },
+    "description": "Can you move from Pilot to Production to Scale?",
+    "icon": "🏆",
+    "questions": [
+      {
+        "text": "Q1. How well do teams understand how AI affects their daily work?",
+        "options": [
+          {
+            "text": "Teams are unaware of AI implications",
+            "score": 0
+          },
+          {
+            "text": "Awareness exists, but understanding is low",
+            "score": 1
+          },
+          {
+            "text": "Some teams understand and apply AI tools",
+            "score": 2
+          },
+          {
+            "text": "Clear role-level understanding across teams",
+            "score": 3
+          },
+          {
+            "text": "AI is embedded into workflows and decision-making",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q2. How mature is your AI governance (ethics, data, risk)?",
+        "options": [
+          {
+            "text": "No governance in place",
+            "score": 0
+          },
+          {
+            "text": "Informal guidelines, inconsistently applied",
+            "score": 1
+          },
+          {
+            "text": "Basic policies exist, limited enforcement",
+            "score": 2
+          },
+          {
+            "text": "Defined governance framework with accountability",
+            "score": 3
+          },
+          {
+            "text": "Governance embedded into delivery and review cycles",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q3. How do you support continuous AI learning?",
+        "options": [
+          {
+            "text": "No structured learning support",
+            "score": 0
+          },
+          {
+            "text": "External courses only, optional",
+            "score": 1
+          },
+          {
+            "text": "Mix of external training and internal sharing",
+            "score": 2
+          },
+          {
+            "text": "Structured learning with mentoring and practice",
+            "score": 3
+          },
+          {
+            "text": "Continuous learning embedded into performance and roles",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q4. What typically happens after an AI pilot?",
+        "options": [
+          {
+            "text": "Pilot stops after demo",
+            "score": 0
+          },
+          {
+            "text": "Pilot is revisited slowly or inconsistently",
+            "score": 1
+          },
+          {
+            "text": "Some pilots move to limited production",
+            "score": 2
+          },
+          {
+            "text": "Clear path from pilot to production",
+            "score": 3
+          },
+          {
+            "text": "Repeatable model to scale successful pilots",
+            "score": 4
+          }
+        ]
+      },
+      {
+        "text": "Q5. How confident are you in sustaining AI initiatives beyond 12 months?",
+        "options": [
+          {
+            "text": "Not confident at all",
+            "score": 0
+          },
+          {
+            "text": "Some confidence, high dependency on individuals",
+            "score": 1
+          },
+          {
+            "text": "Moderately confident, risks remain",
+            "score": 2
+          },
+          {
+            "text": "Confident with systems and talent in place",
+            "score": 3
+          },
+          {
+            "text": "Very confident, AI is self-sustaining and scalable",
+            "score": 4
+          }
+        ]
+      }
+    ]
+  }],
+  "summary_pose": {
+    "score_range": {
+      "high_average": [4, 2.9],
+      "average": [2.8, 1.7],
+      "low_average": [1.6, 0]
+    },
+    "knight_end_animation": {
+      "high_average": "knight's armor is really flashy, like gold and silver and celebrates in victory",
+      "average": "knight's armor is normal, normal metals, stands with sword at side, nods in acknowledgment",
+      "low_average": "knight is still in training clothes, but with a determined look"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+BREIF:
+- i'm trying to build a gamified version of what was then an online quiz for people to fill up to determine the readiness of their companies to adapt AI workflows
+- depending on the company we give the test to 
+- but there has to be a system in the backend (need to be able to login) where we can change the look and feel of the game
+- as for the stack, we can use PostgreSQL for the database (details in the .env file) and payload as the platform, for the game we use HTML5 as this is supposed to be a web app, we can also use python for additional functions (optional, if really needed for the game mechanics or the AI implementation) and in the folder you will see an empty scaffold for payload
+- for the AI tools, we are going to use QWEN, i will supply all the details in the .env file
+
+PREMISE (DEFAULT GAME DESIGN):
+0. Before starting the game, the system will ask for the knight's name, the name of their company and the industry they are in and store it in the database (all
+1. the player is a knight in training, initially the knight trainee is wearing leather training clothes
+2. you will go through the questions for each section and it will be sort of a training for the knight, the questions will be presented in ai_readiness_questions.json and follow the question selection as presented in /game_concept/Screens/* for each section archery, boxing and sword and there are screen images there of how i want each question should look like, with the assets you have generated
+3. the sections and questions for each question is inside the ai_readiness_questions.json and there are more details inside there
+4. the player can go back for each question whenever they like and replay that question if they want to
+5. Once the player finishes each section, there will be a breif animation described the ai_readiness_questions.json "section_animation"
+6. when the player finishes all the sections, the training will finish
+7. and based on the result score there are details of how the knight will look like at the end of the training, based on how well they scored as detailed on ai_readiness_questions.json
+8. then we'll use QWEN to create a summary and what the company can do as their next steps to implement AI on their company or to improve their AI readiness if their scores are too low as well as a score along with the image of their knight, it will show the player their score
+
+BACKEND:
+- let's use payload's CMS system to change the look and feel of the game
+- in the backend, we should be able to change the background and how the knight looks like for each of the sections, the bow, and the sword and all other assets as well as the questions
+- there should only be always 3 sections
+- the default look and feel of the game is in the "PREMISE (DEFAULT GAME DESIGN)
+- there should be a table called "modes" this is all where the changeable assets and questions reside, so for example, if i want to make a mode for an electronic company, can go on the URL, like "127.0.0.1/electric" and it would show the "electronic" mode assets
+- the default would be "127.0.0.1/default"
+- there is no need to login for the game, only the backend, just keep the payload backend
+
+ARTSTYLE
+- i want the art style to be like one of those a 2D game, like in pokemon
+- i want the knight to be a girl, also using 2D anime-style sprites of graphics
+
+BACKGROUND
+- just keep the background as a medieval barracks, where they would train knights back then, dont overload it with details
+- Keep the background simple but nice to look at
