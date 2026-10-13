@@ -92,7 +92,7 @@ export function reportInputs(run: Submission, mode: Mode): ReportContext {
   const score = scoreRun(
     (mode.sections ?? []).map((section) => ({
       key: section.key as SectionKey,
-      questionIds: (section.questions ?? []).map((question) => question.id),
+      questionIds: (section.questions ?? []).map((question) => question.key),
     })),
     Object.fromEntries(
       answerRows.map((row) => [
@@ -123,7 +123,7 @@ export function reportInputs(run: Submission, mode: Mode): ReportContext {
       band,
       questions: (section.questions ?? []).map((question) => ({
         question: question.text ?? '',
-        answer: firstOptionText(question, byQuestionId.get(question.id)?.optionIndex ?? -1),
+        answer: firstOptionText(question, byQuestionId.get(question.key)?.optionIndex ?? -1),
       })),
     })
   }

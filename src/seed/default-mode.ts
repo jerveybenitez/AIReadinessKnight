@@ -19,7 +19,7 @@ export type SeedResult = 'created' | 'exists'
  * Idempotent seed for the `default` mode — the fallback source for every other mode.
  *
  * - Safe to re-run: if a mode with slug `default` exists, nothing is touched (admin edits win).
- * - Question ids are generated once here (`<sectionKey>-q<n>`) and never regenerated — stored answers key on them.
+ * - Question keys are generated once here (`<sectionKey>-q<n>`) and never regenerated — stored answers key on them.
  * - Asset slots are intentionally left empty; the game renders dev placeholders until real art is
  *   uploaded, and other modes inherit whatever `default` ends up with.
  */
@@ -57,7 +57,7 @@ export async function seedDefaultMode(payload: Payload): Promise<SeedResult> {
           text: section.section_animation[band],
         })),
         questions: section.questions.map((question, index) => ({
-          id: `${section.game_training}-q${index + 1}`,
+          key: `${section.game_training}-q${index + 1}`,
           text: question.text,
           options: question.options.map((option) => ({
             text: option.text,

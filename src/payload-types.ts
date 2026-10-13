@@ -232,9 +232,9 @@ export interface Mode {
         questions?:
           | {
               /**
-               * Stable id — every stored answer references it. Never change once submissions exist.
+               * Stable key — every stored answer references it, and duplicated modes copy it as-is. Never change once runs exist on this mode.
                */
-              id: string;
+              key: string;
               text: string;
               /**
                * Five options, score 0 → 4 top to bottom — rendered left to right as five targets.
@@ -246,6 +246,7 @@ export interface Mode {
                     id?: string | null;
                   }[]
                 | null;
+              id?: string | null;
             }[]
           | null;
         id?: string | null;
@@ -523,7 +524,7 @@ export interface ModesSelect<T extends boolean = true> {
         questions?:
           | T
           | {
-              id?: T;
+              key?: T;
               text?: T;
               options?:
                 | T
@@ -532,6 +533,7 @@ export interface ModesSelect<T extends boolean = true> {
                     score?: T;
                     id?: T;
                   };
+              id?: T;
             };
         id?: T;
       };

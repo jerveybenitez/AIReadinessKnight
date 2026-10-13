@@ -9,11 +9,19 @@ import {
   SECTIONS_PER_MODE,
 } from '../game/constants'
 
-/** An upload slot bound to the media collection. Empty inheritance comes from the `default` mode (resolved server-side). */
+/**
+ * An upload slot bound to the media collection. Empty inheritance comes from the `default` mode (resolved server-side).
+ *
+ * `disableDuplicate`: a duplicated mode is a re-skin shell — copy, questions and theme come along,
+ * art does not. The admin can then upload only the handful of assets the re-skin changes; every
+ * empty slot inherits from `default` (otherwise a duplicate would silently ship the source mode's
+ * art as its own and later edits to `default` would never reach it).
+ */
 const asset = (name: string, label?: string): Field => ({
   name,
   type: 'upload',
   relationTo: 'media',
+  disableDuplicate: true,
   ...(label ? { label } : {}),
 })
 
@@ -53,12 +61,16 @@ const validateSectionAnimationBands = (value: unknown): true | string => {
   return true
 }
 
-/** Stored answers key on question ids, so they must be unique within the mode. */
-const validateQuestionIds = (value: unknown): true | string => {
+/**
+ * Stored answers key on question keys, so they must be unique. Named `key`, not `id`: a field
+ * literally called `id` on an array row becomes the row's primary key in the database, which makes
+ * duplicating a mode (or reusing the same keys in a second mode) collide on the shared row table.
+ */
+const validateQuestionKeys = (value: unknown): true | string => {
   const rows = Array.isArray(value) ? value : []
-  const ids = rows.map((row) => (row as { id?: string } | null)?.id).filter(Boolean) as string[]
-  if (new Set(ids).size !== ids.length) {
-    return 'Question ids must be unique — stored answers are keyed by them.'
+  const keys = rows.map((row) => (row as { key?: string } | null)?.key).filter(Boolean) as string[]
+  if (new Set(keys).size !== keys.length) {
+    return 'Question keys must be unique — stored answers are keyed by them.'
   }
   return true
 }
@@ -117,6 +129,31 @@ export const Modes: CollectionConfig = {
       unique: true,
       index: true,
       validate: validateSlug,
+      hooks: {
+        /**
+         * The admin Duplicate button sends no data, so the copy would arrive carrying the source's
+         * slug and trip the unique index on save. Give the copy `<slug>-copy` (or -2, -3… if that
+         * is taken too) — the operator then renames it to the new mode's slug before saving.
+         */
+        beforeDuplicate: [
+          async ({ value, req }) => {
+            const base = `${typeof value === 'string' && value.length > 0 ? value : 'mode'}-copy`
+            let candidate = base
+            for (let n = 2; n <= 99; n += 1) {
+              const clash = await req.payload.find({
+                collection: 'modes',
+                where: { slug: { equals: candidate } },
+                limit: 1,
+                depth: 0,
+                req,
+              })
+              if (clash.docs.length === 0) break
+              candidate = `${base}-${n}`
+            }
+            return candidate
+          },
+        ],
+      },
       admin: {
         position: 'sidebar',
         description: 'The URL segment: /<slug>. Shared result links do not depend on it, but renaming breaks bookmarks of the game page.',
@@ -202,15 +239,16 @@ export const Modes: CollectionConfig = {
           minRows: QUESTIONS_PER_SECTION,
           maxRows: QUESTIONS_PER_SECTION,
           labels: { singular: 'Question', plural: 'Questions' },
-          validate: validateQuestionIds,
+          validate: validateQuestionKeys,
           admin: { initCollapsed: true },
           fields: [
             {
-              name: 'id',
+              name: 'key',
               type: 'text',
               required: true,
               admin: {
-                description: 'Stable id — every stored answer references it. Never change once submissions exist.',
+                description:
+                  'Stable key — every stored answer references it, and duplicated modes copy it as-is. Never change once runs exist on this mode.',
               },
             },
             { name: 'text', type: 'text', required: true },

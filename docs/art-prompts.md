@@ -134,3 +134,31 @@ scrim text-shadow, the section chip gained the same dark plate as the score badg
 scene now actually renders its `results.background` slot (it was wired but never drawn), and the
 question scene skips the flying projectile and stuck-arrow overlay in melee sections instead of
 rendering placeholders for the empty slot.
+
+## Electric re-skin (M9 partial set, 2026-10-13)
+
+The M9 proof overrides **only three archery slots** of the duplicated mode (target idle, target
+hit, hit effect); everything else is left empty on purpose, so the default set shows through
+slot-by-slot (see `docs/modes.md`). Two raws, both generated with the style anchor verbatim:
+
+| Raw | Prompt |
+| --- | --- |
+| `vibe_images/target-electric-idle-hit_1791880350712_db206bbf.png` (1264×848, idle+hit sheet) | {Style} Two versions of the same round training target standing side by side on one image, evenly spaced, identical size and angle, feet on the same invisible ground line, clear empty space between them. The target: a round straw archery target on two simple wooden tripod legs, front view, slightly angled, painted concentric rings in an electric palette — wide outer ring pale sky blue, middle ring saturated cyan, bullseye bright electric blue — crisp dark outlines, and small crackling saturated-cyan lightning arcs hugging the rim (the arcs are medium cyan, never white, no glow). LEFT POSE: intact and calm, lightning arcs softly crackling on the rim. RIGHT POSE: just struck — the bullseye punched with a crackling saturated-cyan spark burst at the centre, a few straw flecks flying, the target tilted a few degrees. Both isolated on a perfectly flat uniform pure white background, no shadows, no floor line, no other objects, no text. |
+| `vibe_images/hiteffect-electric_1791880363163_b5763eb2.png` (1024×1024) | {Style} Small circular impact burst: flat starburst of sharp shards in saturated cyan and electric blue with a deep electric-blue core, a few small lightning-crackle spikes between the shards, crisp dark outlines around every shard, anime impact feel. The burst sits centred in the frame with generous even margin. Isolated on a perfectly flat uniform pure white background, nothing else, no text. |
+
+Processing: `scripts/art/process-electric.mjs` — the same pipeline and constants as
+`process-set.mjs` (adaptive per-file white-key, fringe erosion 224, pocket clearing for the sheet,
+trim). Scale discipline matches the set: the target idle/hit pair shares one fit factor
+(0.6286), bottom-anchored margin 4 on the 400×400 target canvas; the effect fits centred margin 2
+on the 400×400 effect canvas. Outputs in `art/electric/archery/`:
+
+- `target.idle@2x.png` — 323×396 at (39,0)
+- `target.hit@2x.png` — 324×392 at (38,4)
+- `hitEffect@2x.png` — 396×383 at (2,9)
+
+Wiring is **by hand through the admin UI** (that is the milestone): target idle in phase 1,
+target hit + hit effect in phase 2 — the exact clicks are `docs/modes.md`. The `target.hover`
+slot is deliberately left empty, which is why hovering an electric target shows the default golden
+one (the per-slot fallback teaching example). Verified by `scripts/art/verify-electric.mjs`
+(`partial` / `full`): every scene asserts the uploads render, the uncovered slots carry default
+URLs, and no placeholder is ever visible.

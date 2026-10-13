@@ -10,10 +10,10 @@ import type { Mode } from '@/payload-types'
  * per-slot fallback.
  */
 
-const question = (id: string) => ({
-  id,
-  text: `Text for ${id}`,
-  options: [0, 1, 2, 3, 4].map((score) => ({ text: `Option ${score} for ${id}`, score })),
+const question = (key: string) => ({
+  key,
+  text: `Text for ${key}`,
+  options: [0, 1, 2, 3, 4].map((score) => ({ text: `Option ${score} for ${key}`, score })),
 })
 
 const section = (key: 'archery' | 'boxing' | 'swordsmanship', suffix = '') => ({

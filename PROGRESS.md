@@ -18,8 +18,8 @@ Last updated: 2026-10-13
 | M5 | Boxing + swordsmanship | **complete** | sections 2/3 are prop-driven reuse of the M4 reference; band-driven section-end animation (text + asset slot + knight pose); verified live with all 15 questions and all three bands (see log below) |
 | M6 | Scoring + results | **complete** | results screen (final knight per band, overall + per-section breakdown), permanent shareable permalink `/result/<runId>` on the unguessable run id, `?run=` adoption for unfinished runs; verified live + e2e incl. a fresh-browser permalink reopen (see log below) |
 | M7 | QWEN report | **complete** | server-side generation (env-driven, `QWEN_DISABLE_THINKING` for the hybrid reasoning model), schema-validated structured JSON, deterministic per-band fallback, cached once per run on the submission; verified live against the hosted endpoint (tailored report in 6.6s) **and** with the endpoint dead (complete template report) — see log below |
-| M8 | Default art set | in progress | sample pass done and self-reviewed (`docs/art-sample/` incl. a game-geometry preview composite); awaiting the user's look before the full set + CMS wiring |
-| M9 | Re-skin proof (`electric`) | pending | |
+| M8 | Default art set | **complete** | full set generated, processed (`art/default/**`, 40 files), wired (`pnpm art:wire`, all 43 slots resolve), verified in-game — see the completion log below |
+| M9 | Re-skin proof (`electric`) | **complete** | `electric` shipped through the real `/admin` UI (duplicate → rename → partial upload → save), per-slot fallback proven by scripted playthroughs with one *and* three assets; operator guide is `docs/modes.md` (see log below) |
 | M10 | Hardening | pending | |
 
 ## M1 verification log (2026-10-13)
@@ -383,6 +383,63 @@ scripted in-game verification, kept for M9/M10), `docs/art-prompts.md` (fully sy
 - **Gates**: `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **71 passed** ✓ ·
   `pnpm test:e2e` **11 passed** ✓ (dead endpoint; one full-suite run flaked on a dev-server
   compile — re-run after the warm-up, green twice) · verify-in-game **PASSED** ✓.
+
+## M9 completion log (2026-10-13)
+
+Files: `docs/modes.md` (new — the operator guide, the milestone's deliverable), `docs/art-prompts.md`
+(electric appendix with the verbatim prompts), `scripts/re-skin-proof.mjs` (new — the whole admin
+flow, Playwright), `scripts/art/verify-electric.mjs` (new — scripted playthrough with per-URL
+assertions), `scripts/art/process-electric.mjs` + `vibe_images/` raws + `art/electric/archery/**`
+(3 sprites), `docs/modes-proof/**` (24 screenshots: admin trail 01–09 + verify-partial/full runs).
+Code changes needed to make admin duplication actually work (all in `src/collections/Modes.ts`
+plus consumers): question subfield `id` → `key` (+ SQL migration on `modes_sections_questions`),
+`slug.beforeDuplicate` hook, `disableDuplicate: true` on every art upload slot; regenerated
+`src/payload-types.ts`; new regression net `tests/int/duplicate.int.spec.ts`.
+
+- **Why the code changes** (each was a real duplication blocker found by drilling into Payload's
+  duplicate source):
+  1. A questions subfield literally named `id` becomes the array row's **primary key**
+     (`modes_sections_questions.id`) and Payload skips its baseIDField — duplication collided on
+     `archery-q1`. Renamed to `key` (label "Question key"): row ids now regenerate per copy, keys
+     carry over, stored answers stay keyed. Migration: add column → copy `key = id` → set not-null.
+  2. The admin Duplicate button sends **no data**, so the copy carried the source slug into the
+     unique index (400 "Value must be unique"). Added a field hook on `slug` (`beforeDuplicate`):
+     `${slug}-copy`, then `-2`…`-99` walking for a free slug. API duplication with explicit data is
+     unaffected (incoming data overrides the hook — verified against Payload's source).
+  3. `disableDuplicate: true` on the art factory: a duplicated mode now starts as an **empty art
+     shell** (every slot falls back to `default`) instead of cloning media pointers — the re-skin
+     premise, and the thing `verify-electric.mjs` asserts.
+- **The partial set**: two ImageGen raws (prompts recorded verbatim in `docs/art-prompts.md`),
+  `process-electric.mjs` (same pixel pipeline/constants as the M8 set) → `target.idle@2x.png`,
+  `target.hit@2x.png`, `hitEffect@2x.png` in `art/electric/archery/`.
+- **The admin proof** (`node scripts/re-skin-proof.mjs phase1|phase2|clean`, real `/admin`, system
+  Chrome): duplicate `default` (id 1) → slug becomes `default-copy` via the hook → rename to
+  Electric / `electric` / accent `#4dd8ff` → save → "Show All" sections → upload targets through
+  the Create New drawer → save. Evidence: `docs/modes-proof/01`–`09`. A first live run is worth
+  remembering: it duplicated the **wrong row** (the mode list sorts by recency, and clicking "the
+  first row" hit Electric, colliding on the unique slug) *and* the save-wait false-positived on a
+  case-insensitive toast substring while a 400 was showing. The script now targets the row by its
+  `td.cell-slug` text, races success vs **error** toasts (throws on error), and re-asserts the slug
+  after every save. (The DB was cleaned back to `default`-only before the green rerun.)
+- **The verification** (`node scripts/art/verify-electric.mjs [partial|full]`, dead-QWEN dev
+  server, same answer plan as M8 so bands/results are directly comparable): every scene asserts the
+  resolved media URL behind each `<img>`. `partial` (1 uploaded asset) — 77/77: electric target
+  idle renders and the default archery target idle is shadowed; background, knight, projectile,
+  target hit, hit effect, band beats, title, results **all carry default URLs**; boxing /
+  swordsmanship / title / results contain **zero** electric URLs; accent `#4dd8ff` is on the
+  stage; title/intake/results copy reads "Electric"; full 15-question walk, three bands, average
+  results, offline report. `full` (3 assets, after phase 2) — flips the hit/effect assertions to
+  the electric uploads, defaults shadowed. If a page renders nothing, the script dumps the full
+  src list per scene. Screenshots `docs/modes-proof/verify-partial-*`, `verify-full-*`.
+- **`docs/modes.md`** — the non-technical 10-minute path (duplicate → rename → save → upload →
+  save → play), the per-slot fallback explained with the electric run's hover screenshot (unfilled
+  hover slot visibly shows the default golden target), replace/clear/delete/rename notes, gotchas
+  (unique-slug error, do-not-edit-`default`), and the replay commands.
+- **Gates**: `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **74 passed** ✓ (6 files;
+  includes the new cross-mode key-reuse regression) · `pnpm test:e2e` **11 passed** ✓ (dead
+  endpoint) · verify-electric **partial + full PASSED** ✓.
+- Known cosmetic (deferred to M10): the template app 404s `/favicon.ico` (one informational
+  console line during verification).
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 

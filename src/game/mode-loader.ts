@@ -30,7 +30,7 @@ const resolveQuestions = (primary: Section | undefined, fallback: Section | unde
   return (source ?? []).map((question, index) => {
     const fb = fallback?.questions?.[index]
     return {
-      id: question.id || fb?.id || `q${index + 1}`,
+      id: question.key || fb?.key || `q${index + 1}`,
       text: question.text || fb?.text || '',
       options: (question.options ?? []).map((option, oi) => ({
         text: option.text || fb?.options?.[oi]?.text || '',

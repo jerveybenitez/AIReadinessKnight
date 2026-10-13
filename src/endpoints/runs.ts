@@ -130,7 +130,7 @@ export const answerEndpoint: Endpoint = {
     for (const section of mode.sections ?? []) {
       for (const question of section.questions ?? []) {
         totalQuestions += 1
-        if (question.id === questionId) {
+        if (question.key === questionId) {
           const option = question.options?.[optionIndex]
           if (!option) return error(`Option ${optionIndex} does not exist for this question`, 400)
           answer = {
