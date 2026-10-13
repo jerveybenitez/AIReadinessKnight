@@ -62,9 +62,10 @@ Write an idempotent seed script (`pnpm payload` / a `src/seed/` module) that:
 1. Reads `ai_readiness_questions.json` — the source of truth for all 15 questions, section names,
    descriptions, icons and `section_animation` text.
 2. Maps `game_training` → section `key` (`archery`, `boxing`, `swordsmanship`).
-3. Fixes the known typo (`"kingt punches bag"` → `"knight punches bag"`) **on seed**. Leave the
-   source JSON untouched.
-4. Leaves asset slots empty — placeholders cover them (see `game-assets`).
+3. Carries the `section_animation` keys through **verbatim** — `0-0.9`, `1-2.9`, `3-4`. These are
+   the section band keys; see `knight-game` for the banding rules. Don't normalise or rename them.
+4. Leaves asset slots empty at first — dev placeholders cover them, then the generated `default`
+   art set fills them (see `game-assets`).
 5. Is safe to re-run: upsert by slug, don't duplicate.
 
 `default` must always exist. The game's own smoke test is that `/default` is playable.
@@ -76,8 +77,9 @@ src/app/(frontend)/[mode]/page.tsx
 ```
 
 - Load the mode by slug server-side, pass it down. The game never fetches the mode from the client.
-- Unknown slug → one documented behaviour: either `notFound()` or redirect to `default`. Pick one,
-  write it in `docs/modes.md`, don't do both in different places.
+- **Unknown slug → `notFound()`. A 404.** No fallback to `default`, no redirect. A typo'd client
+  URL must fail visibly rather than silently serving another client's branding. Note this is the
+  opposite of the *asset* fallback below — a missing **mode** 404s, a missing **slot** falls back.
 - `(payload)` routes own `/admin` and `/api`. Make sure `[mode]` cannot shadow them — this is the
   most likely routing bug in the whole project.
 - Consider `generateStaticParams` + revalidation for mode data, but **never** cache a submission or
@@ -100,17 +102,31 @@ Whichever you pick: assets may be **referenced**, not re-uploaded. Two modes poi
 
 ## Fallbacks
 
-A half-configured mode must still render. Resolve every field through a fallback chain:
+**Backend users supply their own art; anything they don't supply comes from `default`.** This is a
+stated requirement, not an optimisation. A mode with one uploaded background and nothing else must
+be fully playable.
+
+Resolve every field through the chain:
 
 ```
-mode.field  →  default mode's field  →  code-side placeholder
+mode.field  →  default mode's field  →  dev placeholder
 ```
 
-Implement this once, server-side, when loading the mode — not per-component. A component that
-writes `mode.sections[0].assets.background ?? somethingElse` has leaked the fallback rule.
+Implement this **once, server-side, when loading the mode** — not per-component. A component that
+writes `mode.sections[0].assets.background ?? somethingElse` has leaked the fallback rule, and the
+next component will leak it differently.
 
-Surface incompleteness in `/admin` (a "this mode is using N defaults" indicator) so an editor knows
-before a client does.
+Practical consequences:
+
+- `default` must be complete before any other mode is useful. It is the fallback source, not just
+  the first mode.
+- Resolution happens against the **merged** mode, so downstream code never sees a null slot and
+  never branches on one.
+- Surface incompleteness in `/admin` (a "this mode inherits N slots from default" indicator) so an
+  editor knows what they still owe before a client does.
+- Do not fall back **questions** silently the way you fall back assets without saying so — a mode
+  inheriting `default`'s wording is correct, but the editor should be able to see that it is
+  inherited rather than authored.
 
 ## Access control
 
@@ -118,8 +134,10 @@ Set it explicitly; the scaffold's defaults are not what you want here.
 
 - `modes`: public **read** (the game needs it, unauthenticated), authenticated write.
 - `submissions`: **no public read.** Create is public (the game posts answers). Read/update/delete
-  are admin-only. A player retrieving their own result goes through a dedicated endpoint keyed on
-  the unguessable `runId`, returning only that run's safe fields.
+  are admin-only. Results are served by a dedicated endpoint keyed on the unguessable `runId`,
+  returning only that run's safe fields — scores, band, pose and report, never the whole document.
+- **Result links are shareable and permanent** by product decision, so the `runId` is the only
+  access control on them. That makes "unguessable" a security requirement, not a style preference.
 - Submissions carry company names and self-assessed weaknesses. Treat the collection as
   confidential, not as analytics exhaust.
 - When any server code acts on behalf of a player, pass `overrideAccess: false`.

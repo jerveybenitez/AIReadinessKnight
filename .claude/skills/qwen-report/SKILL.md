@@ -22,19 +22,24 @@ app that depends on a third party, so it must never be able to break the results
 4. **Model output is untrusted data.** Validate the shape, render as text. Never `dangerouslySet
    InnerHTML`, never feed it into a query or a shell.
 
-## Env
+## Env — localhost for now
 
-Add to `.env.example` (never commit real values):
+There is **no hosted QWEN endpoint yet**. Develop against a local OpenAI-compatible server.
 
 ```
-QWEN_API_KEY=
-QWEN_BASE_URL=
-QWEN_MODEL=
+QWEN_BASE_URL=http://localhost:11434/v1   # local server; adjust to whatever is running
+QWEN_API_KEY=                             # often blank locally
+QWEN_MODEL=qwen2.5
 ```
 
-The real credentials are to be supplied by the user. **Ask for them — do not guess an endpoint or
-model name.** Until they arrive, develop against the fallback path (below); it is the path that has
-to work anyway.
+- **Nothing vendor-specific in source.** No hardcoded URL, model name or key — moving to a hosted
+  endpoint later must be a pure `.env` change.
+- Assume an **OpenAI-compatible** chat-completions shape. If the local server the user is running
+  turns out to speak something else, ask rather than writing an adapter on spec.
+- A blank `QWEN_API_KEY` is **normal locally** and must not be treated as a fatal misconfiguration.
+  Send no `Authorization` header when it's empty; don't throw.
+- The endpoint will frequently be **down** during development. That is the expected state, not an
+  error worth surfacing to the player — it's exactly what the fallback is for.
 
 ## Input to the model
 
@@ -80,9 +85,10 @@ be genuinely useful, not an error message:
 - the two weakest sections named, with their standard remediation steps
 - generic-but-real next steps per band
 
-Build the fallback **before** the live integration. It makes M3–M6 unblocked by missing credentials,
-gives you something to diff the model output against, and means the outage path is tested by
-default rather than discovered in production.
+Build the fallback **before** the live integration. With the endpoint on localhost and usually not
+running, this is the path you will exercise most — it is the default experience during development,
+not an edge case. It also gives you something to diff model output against, and means the outage
+path is tested by default rather than discovered in production.
 
 Trigger the fallback on: missing key, network error, non-2xx, timeout, malformed JSON, schema
 validation failure. Log which one fired (server-side, without answer content) so a silent
@@ -111,8 +117,10 @@ The prompt contains a real company's name, industry and self-declared weaknesses
 - Unit-test the schema validator against: valid output, missing field, wrong type, extra fields,
   truncated JSON, JSON wrapped in prose/markdown fences (very common — strip fences before parsing).
 - Unit-test the fallback report for each of the three bands.
-- Test with `QWEN_API_KEY` unset — the results screen must still render a complete report.
-- Do not hit the live API in CI.
+- Test with `QWEN_BASE_URL` pointing at nothing and `QWEN_API_KEY` unset — the results screen must
+  still render a complete report. This is the default local state, so it should be the default test
+  state too.
+- Do not hit a live endpoint in CI.
 
 ## Common failure modes
 

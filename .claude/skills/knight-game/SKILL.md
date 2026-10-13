@@ -76,6 +76,9 @@ Three states, all three required:
 
 Non-negotiables on this screen:
 
+- **Landscape only.** Fixed 1280×720 logical stage, scaled to fit the viewport. There is no portrait
+  layout and no responsive reflow of the target row — a portrait viewport gets a "rotate to play"
+  overlay instead. Do not add breakpoints that restack the targets.
 - Each target is a real focusable control (`<button>`), with `aria-label` = the option text.
   Do not build it from `<div onClick>`.
 - The speech bubble is a convenience, not the only way to read an option. Screen readers get the
@@ -104,20 +107,36 @@ function playAttack(target: number, opts: { reducedMotion: boolean }): Promise<v
 
 ## Scoring
 
+Everything is a **mean score per question on a 0–4 scale**. Never a total. There are **two distinct
+band sets** — they do not share boundaries, and unifying them is a bug.
+
 ```ts
 // src/game/scoring.ts — pure, unit-tested, the only place band rules live
-type Band = 'low_average' | 'average' | 'high_average'
+type SectionBand = '0-0.9' | '1-2.9' | '3-4'          // drives section-end animation
+type FinalBand = 'low_average' | 'average' | 'high_average'  // drives ending knight pose
 
-sectionMean(answers)  // mean of that section's 5 scores, 0..4
-finalMean(answers)    // mean of all 15 scores, 0..4
-bandFor(mean): Band   // [2.9,4.0] high · [1.7,2.8] average · [0,1.6] low
+sectionMean(answers, sectionKey)  // mean of that section's 5 scores
+finalMean(answers)                // mean of all 15 scores
+
+sectionBandFor(mean): SectionBand
+//  mean >= 3   -> '3-4'
+//  mean >= 1   -> '1-2.9'      <- a 2.5 or a 2.95 lands here
+//  else        -> '0-0.9'
+
+finalBandFor(mean): FinalBand
+//  mean >= 2.9 -> 'high_average'
+//  mean >= 1.7 -> 'average'    <- 2.85 lands here
+//  else        -> 'low_average'
 ```
 
-The ranges in `ai_readiness_questions.json` are written high-first and leave gaps between bands
-(2.8 → 2.9, 1.6 → 1.7). Handle the gaps explicitly with `>=` thresholds; do not let a mean of 2.85
-fall through to `undefined`. Test the boundaries: `0, 1.6, 1.65, 1.7, 2.8, 2.85, 2.9, 4`.
+The final-pose ranges in `summary_pose.score_range` leave gaps (2.8→2.9, 1.6→1.7). The `>=`
+thresholds close them deterministically. **Never round the mean before banding** — rounding 2.85 up
+to 2.9 silently promotes a band.
 
-Section-end animation keys (`"0"`, `"1-2"`, `"3-4"`) map onto the same three bands.
+Test boundaries explicitly: `0, 0.9, 1.0, 1.6, 1.65, 1.7, 2.8, 2.85, 2.9, 2.95, 3.0, 4.0`.
+
+Section-end animation keys in `ai_readiness_questions.json` are `"0-0.9"`, `"1-2.9"`, `"3-4"` —
+match `SectionBand` exactly so the CMS lookup is a direct key access, not a mapping table.
 
 ## Run persistence
 
@@ -128,8 +147,10 @@ The player can refresh mid-run and must not lose progress.
 - Write the answer server-side on each answer, not only at the end — a closed tab mid-run should
   still leave a resumable run.
 - Never put the full answer set in a URL or `localStorage` in a form another site could read.
-- Results permalinks use the run id, which is why the id must be unguessable: these runs carry
-  company names.
+- **The results permalink is shareable and permanent** — it is a link the player may send to
+  colleagues. The run id is therefore the only thing protecting a company's readiness gaps from
+  anyone who guesses a URL. Unguessable id, no exceptions, and the permalink endpoint returns only
+  the scores, pose and report — never the raw submission document.
 
 ## Common failure modes
 

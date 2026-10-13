@@ -5,8 +5,8 @@
     "name": "AI Use-Case & Business Readiness",
     "game_training": "archery",
     "section_animation": {
-      "0": "arrow completely misses the target, the knight cries",
-      "1-2": "arrow hits the target, but not the bullseye",
+      "0-0.9": "arrow completely misses the target, the knight cries",
+      "1-2.9": "arrow hits the target, but not the bullseye",
       "3-4": "arrow hits the bullseye and the knight celebrates"
     },
     "description": "Are you solving the right problems with AI?",
@@ -144,8 +144,8 @@
     "name": "AI Talent & Capability Readiness",
     "game_training": "boxing",
     "section_animation": {
-      "0": "knight hurts hand when punching the bag",
-      "1-2": "kingt punches bag, sweats profusely",
+      "0-0.9": "knight hurts hand when punching the bag",
+      "1-2.9": "knight punches bag, sweats profusely",
       "3-4": "knight punches bag and the bag bursts"
     },
     "description": "Do you have the people to make AI real?",
@@ -283,8 +283,8 @@
     "name": "AI Execution, Adoption & Sustainability",
     "game_training": "swordsmanship",
     "section_animation": {
-      "0": "wooden sword breaks on training dummy and the knight cries",
-      "1-2": "wooden sword is wielded with some skill but is sweating profusely and struggling",
+      "0-0.9": "wooden sword breaks on training dummy and the knight cries",
+      "1-2.9": "wooden sword is wielded with some skill but is sweating profusely and struggling",
       "3-4": "wooden sword is wielded with mastery, the dummy breaks and knight celebrates"
     },
     "description": "Can you move from Pilot to Production to Scale?",
