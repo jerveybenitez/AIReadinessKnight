@@ -18,7 +18,7 @@ Last updated: 2026-10-13
 | M5 | Boxing + swordsmanship | **complete** | sections 2/3 are prop-driven reuse of the M4 reference; band-driven section-end animation (text + asset slot + knight pose); verified live with all 15 questions and all three bands (see log below) |
 | M6 | Scoring + results | **complete** | results screen (final knight per band, overall + per-section breakdown), permanent shareable permalink `/result/<runId>` on the unguessable run id, `?run=` adoption for unfinished runs; verified live + e2e incl. a fresh-browser permalink reopen (see log below) |
 | M7 | QWEN report | **complete** | server-side generation (env-driven, `QWEN_DISABLE_THINKING` for the hybrid reasoning model), schema-validated structured JSON, deterministic per-band fallback, cached once per run on the submission; verified live against the hosted endpoint (tailored report in 6.6s) **and** with the endpoint dead (complete template report) — see log below |
-| M8 | Default art set | pending | needs user sample check before full set |
+| M8 | Default art set | in progress | sample pass done and self-reviewed (`docs/art-sample/` incl. a game-geometry preview composite); awaiting the user's look before the full set + CMS wiring |
 | M9 | Re-skin proof (`electric`) | pending | |
 | M10 | Hardening | pending | |
 
@@ -292,6 +292,97 @@ further POSTs).
   stubs + a dead port only). A live-endpoint e2e run would bill real calls; don't.
 - `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **71 passed** ✓ (37 new) ·
   `pnpm test:e2e` **11 passed** ✓ on the frozen code.
+
+## M8 sample log (2026-10-13) — user-approved, completion log below
+
+Per the game-assets skill, the sample is the style anchor (knight) plus one section, reviewed
+before the full pass. Generated with the ImageGen tool (one prompt per asset, style + character
+anchors used verbatim — full prompts in `docs/art-prompts.md`), raws kept in `vibe_images/` and
+copied into `docs/art-sample/raw/`.
+
+- **Raw generations**: `knight-sheet-sample` 1536×1024 (two poses: idle | attack, split after
+  generation so face/outfit/palette cannot drift), `target-idle-sample` 768×1024,
+  `background-sample` 1792×1024, `arrow-sample` 1024×768. Judged a coherent set on review.
+- **Processing** (`scripts/art/process-sample.mjs`, sharp — no Python): border-connected white-key
+  flood fill → fringe erosion → enclosed-pocket clearing (knight) → warm-tint smear removal
+  (arrow) → alpha-bbox trim → one shared scale for the pose pair (0.532) → bottom-centre anchor on
+  the game's actual @2x render boxes (knight 600×520, target 400×400, arrow 240×68, background
+  2560×1440 upscaled from the raw).
+- **Two keying defects found in self-review and fixed with measured thresholds** (probe script,
+  then deleted — numbers live in the code comments):
+  1. *Enclosed backdrop pockets* — the bow loop and string triangle never touch the image border,
+     so the flood fill cannot reach them; they rendered as opaque white holes. Fixed by
+     component-scanning enclosed near-white regions and clearing area ≥ 100 px (real pockets
+     149–39 370 px; art whites — eye highlights, feather cells — ≤ 50 px, so nothing of hers was
+     punched out). Bow holes now show the yard through, eye highlights intact.
+  2. *Warm cream speed-smoke on the arrow* — per-channel white-keying misses it (its blue channel
+     is low). Measured: the smoke is warm (r − b +5…+8, mean 227–232) while every feather white is
+     cool (r − b −7…−10). Fixed with a tint-based erosion pass (r − b ≥ +4, mean ≥ 215). Game
+     animates flight itself; the thin drawn motion streaks near the fletching were kept.
+- **Preview composite** `docs/art-sample/preview-composite.png`: 1280×720 mock built at the real
+  in-game coordinates (targets at x = 70 + i·235 / top 198, knight box at 300,430, arrow
+  mid-flight) — the sample reads exactly like the concept wireframes (target row on the band,
+  knight bottom-left, arrow flying to the clicked target).
+- **Deliverable for review**: `docs/art-sample/` — the four sprites, the background and the
+  composite. Nothing is wired into the CMS yet; the full set (celebrate/fail poses, target hit
+  states, hit effect, boxing/swordsmanship, section-end beats, title/results) waits for the user's
+  go-ahead.
+
+## M8 completion log (2026-10-13)
+
+Files: `art/default/**` (40 processed outputs: title background+logo, results background+3 finals,
+per section background + 4 knight poses + 2 target states + hit effect + 3 band beats, archery
+projectile), `scripts/art/process-set.mjs` (the full-set pipeline; supersedes `process-sample.mjs`,
+deleted with the probe scripts now that the measured thresholds live in its comments),
+`src/seed/wire-art.ts` + `pnpm art:wire` (CMS wiring), `scripts/art/verify-in-game.mjs` (the
+scripted in-game verification, kept for M9/M10), `docs/art-prompts.md` (fully synced).
+
+- **Generation** followed the approved sample anchors verbatim; 6 two-pose knight sheets (12 poses
+  across the sections — sheet-splitting is what keeps her face/outfit consistent per section),
+  targets as idle+hit pairs (hover is CSS glow on the idle sprite — no separate asset), one hit
+  effect per section, three 720×340 band beats per section, three finalKnight builds, logo, three
+  backgrounds.
+- **Processing** (`process-set.mjs`, sharp, no Python): **adaptive per-file white-key** — key limit
+  per channel measured from the file's border ring, `clamp(median − 7, 236, 248)`; a fixed 245 left
+  several raws partly opaque (warm paper) while fixed-low thresholds ate art whites. Fringe 224,
+  hole-clearing 242/≥100 px/rim 240, warm-smear (r − b) for the arrow only. **One global knight
+  scale** — `K = min(fitFactor × rawHeight)` over all 12 poses = 545 raw px, so she is the same size
+  in every section (the archery sheet's 0.532 factor reproduces the approved sample layout
+  pixel-exactly). Target idle/hit share one pair-min fit so the hit moves within the idle
+  footprint. Beats 720×340 margin 6, finals 264×264 bottom-anchored margin 4, logo 680×240 margin 4.
+- **Review caught two background collisions**: the first boxing/sword backgrounds had props baked
+  into the play row (a dummy beside where sword slot 2 lands, a flat bag beside boxing slot 2), so
+  the CMS sprites doubled them. Regenerated as **v2** with the bare-middle-band constraint stated
+  explicitly (now recorded in `docs/art-prompts.md`); review frames re-rendered at true game
+  coordinates are clean. Superseded v1 raws stay on disk, uncommitted.
+- **Wiring** (`pnpm art:wire`): 40 media uploads (find-or-create by unique staged filename; re-runs
+  need `REPLACE=1`), the default mode's sections rebuilt with row ids preserved, `target.hover`
+  bound to the idle media id, projectile wired for archery only, beats bound per band key. The
+  script's own verification pass re-reads the mode and reports all **43 slots** resolving to real
+  `/api/media/file/...` URLs. Placeholders are no longer reachable in `/default`.
+- **In-game verification** (`scripts/art/verify-in-game.mjs`, Playwright on system Chrome —
+  bundled chromium-1208 is an incomplete download, `PW_CHANNEL=chrome` as in M4): a full scripted
+  run against a **dead-QWEN dev server** (`http://127.0.0.1:9/v1`). Answer plan 1.8 / 0.6 / 3.6 →
+  every section band exercised (1-2.9 idle · 0-0.9 fail · 3-4 celebrate), overall 2.0 → average.
+  Asserts per scene: zero `.ark-placeholder`, all images complete, pose/beat/copy per band, melee
+  sections render no `.ark-arrow` element, fallback report arrives with the provenance line
+  ("the AI scribe was offline"). 18 screenshots in `docs/art-sample/verify-*.png`.
+- **Three real defects the verification caught and fixed**:
+  1. *Melee placeholder projectile* — the question scene rendered the flying arrow and the
+     stuck-arrow overlay unconditionally, so boxing/swordsmanship attacks showed a "Projectile"
+     placeholder for a slot the design keeps empty. Now guarded on `section.assets.projectile`
+     (reduced-motion e2e unaffected — it renders no arrow at all).
+  2. *`results.background` wired but never rendered* — the M6 results scene had no scene
+     background, so the slot the skill list requires was dead. `Results.tsx` now renders it in
+     both views (scores + report), with `position: relative` added to both cards (the same
+     stacking treatment the title card already had).
+  3. *Readability over the real backgrounds* — the question banner, the progress line and the gold
+     section chip were designed against the dark placeholder backdrop; on sky/wall/lawn they lost
+     contrast. Soft scrim text-shadows on banner + progress, dark plate on the chip (same language
+     as the score badges).
+- **Gates**: `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **71 passed** ✓ ·
+  `pnpm test:e2e` **11 passed** ✓ (dead endpoint; one full-suite run flaked on a dev-server
+  compile — re-run after the warm-up, green twice) · verify-in-game **PASSED** ✓.
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 

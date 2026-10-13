@@ -126,9 +126,18 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
             ? 'Your report is ready — written from your scores, the AI scribe was offline.'
             : ''
 
+  // Both views (scores, report) sit on the results background — the slot is per-mode art, so a
+  // re-skin can swap the whole ending without touching the cards.
+  const sceneBackground = (
+    <div className="ark-scene-bg">
+      <Sprite asset={assetOr(mode.results.background, 'Results background', 'background')} className="ark-bg-fill" />
+    </div>
+  )
+
   if (view === 'report') {
     return (
       <section className="ark-scene ark-results-scene" aria-labelledby="ark-report-heading">
+        {sceneBackground}
         <ReportPanel
           mode={mode}
           state={report}
@@ -142,6 +151,7 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
 
   return (
     <section className="ark-scene ark-results-scene" aria-labelledby="ark-results-heading">
+      {sceneBackground}
       <div className="ark-results-card">
         <p className="ark-results-kicker">{mode.title}</p>
         <h2 id="ark-results-heading" tabIndex={-1} ref={headingRef}>

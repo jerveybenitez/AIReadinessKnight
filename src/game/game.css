@@ -350,6 +350,11 @@
   margin: 0;
   max-width: 1000px;
   margin-inline: auto;
+  /* The banner is bare text over the section background — M8 made the backgrounds real art, so
+     the question needs a soft scrim shadow to stay readable on sky, walls or timber alike. */
+  text-shadow:
+    0 2px 12px rgba(8, 10, 18, 0.7),
+    0 1px 3px rgba(8, 10, 18, 0.55);
 }
 
 .ark-bubble {
@@ -572,6 +577,7 @@
   gap: 14px;
   font-size: 15px;
   opacity: 0.9;
+  text-shadow: 0 1px 6px rgba(8, 10, 18, 0.65);
 }
 
 .ark-progress-chip {
@@ -582,6 +588,9 @@
   font-size: 13px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  /* Gold on light backgrounds (all three M8 grounds) needs its own plate — same language as the
+     target score badges. */
+  background: rgba(10, 10, 20, 0.6);
 }
 
 .ark-question-nav {
@@ -666,6 +675,7 @@
 }
 
 .ark-results-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -772,6 +782,7 @@
 /* ---- readiness report (M7) ---- */
 
 .ark-report-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;

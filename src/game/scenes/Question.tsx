@@ -215,7 +215,7 @@ export function QuestionScene({
               impactOverlay={isActionTarget}
               impactEffect={section.assets.hitEffect}
               stuckProjectile={section.assets.projectile}
-              showStuckProjectile={chosenIndex === index && !attacking}
+              showStuckProjectile={chosenIndex === index && !attacking && Boolean(section.assets.projectile)}
               onEnter={() => setPointer({ qid: questionId, index })}
               onLeave={() => setPointer((p) => (p?.qid === questionId && p.index === index ? null : p))}
               onFocus={() => {
@@ -230,7 +230,9 @@ export function QuestionScene({
         })}
       </div>
 
-      {attacking && actionTarget !== null && !reducedMotion ? (
+      {/* Ranged sections fly the projectile; melee sections (no projectile slot) let the attack
+          pose + delayed impact overlay carry the beat — nothing flies, nothing sticks. */}
+      {attacking && actionTarget !== null && !reducedMotion && Boolean(section.assets.projectile) ? (
         <span
           className="ark-arrow"
           aria-hidden="true"
