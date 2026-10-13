@@ -1,9 +1,11 @@
 import React from 'react'
+
 import './styles.css'
 
 export const metadata = {
-  description: 'A blank template using Payload in a Next.js app.',
-  title: 'Payload Blank Template',
+  title: 'AI-Ready Knight',
+  description:
+    'A gamified AI-readiness assessment. Train across three disciplines, see your scores, and share your knight’s report.',
 }
 
 export default async function RootLayout(props: { children: React.ReactNode }) {

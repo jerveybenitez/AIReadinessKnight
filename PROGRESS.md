@@ -13,7 +13,7 @@ Last updated: 2026-10-13
 | --- | --- | --- | --- |
 | M1 | Foundations | **complete** | DB ✓ · dev server ✓ · `/admin` 200 ✓ · first admin user created via UI ✓ · plan below |
 | M2 | Backend model | **complete** | `modes` + `submissions` collections, explicit access control, idempotent seed of `default`; verified via /admin UI, REST API and psql (see log below) |
-| M3 | Game shell | pending | |
+| M3 | Game shell | **complete** | `/[mode]` routing + fallback resolver, title/intake/question/section-end/results scenes on a scaled 1280×720 stage, pure scene machine, server-run resume; verified in a real browser (see log below) |
 | M4 | Archery section | pending | reference implementation |
 | M5 | Boxing + swordsmanship | pending | |
 | M6 | Scoring + results | pending | |
@@ -72,6 +72,47 @@ registers the two collections; `package.json` gained `pnpm seed`.
 - `pnpm generate:types` ✓, `tsc --noEmit` exit 0 ✓, `pnpm lint` 0 errors ✓, `pnpm test:int` ✓.
 - `pnpm test:e2e` still blocked on the Playwright chromium download (in progress at end of M2);
   scaffold frontend e2e will need rewriting in M3 anyway.
+
+## M3 verification log (2026-10-13)
+
+Files added: `src/app/(frontend)/[mode]/page.tsx` (force-dynamic, `notFound()` on unknown slug,
+`React.cache`d loader shared with `generateMetadata`), `src/app/(frontend)/page.tsx` → redirect
+`/default`, `src/game/GameShell.tsx` (client; machine instance, resume, server writes, focus per
+scene), `src/game/components/Stage.tsx` + `Sprite.tsx`, scenes `Title/Intake/Question/SectionEnd/
+Results.tsx`, `src/game/game.css`; `src/endpoints/runs.ts` wired into `Submissions.endpoints`;
+`tests/int/machine.int.spec.ts` (13) + `tests/int/mode-resolver.int.spec.ts` (8); orphaned
+scaffold `src/app/my-route/` deleted; template `styles.css` reduced to a base reset; layout
+metadata now AI-Ready Knight.
+
+- **Endpoint smoke tests (curl)**: create → 201 + uuid runId; answer → ack; replay of the same
+  question id → count stays 1 and the value is replaced; GET snapshot → narrow projection with
+  server-derived `sectionKey`/`score`; unknown run → 404; unknown mode → 404; empty name → 400;
+  anonymous `GET /api/submissions` still **403**.
+- **Real-browser playthrough** (after fixes below): title scene renders mode title/copy/chips →
+  Begin training → intake (labels, disabled-until-valid submit, privacy note) → submit creates the
+  run (POST 201) → first question with progress "Section 1 of 3 · Question 1 of 5" and 5 options
+  whose accessible names are the option text (score badges are `aria-hidden`) → arrow keys move
+  option focus → click answers (POST answer 200) → selected state → auto-advance after a 700 ms
+  beat → Back returns to answered q1 (shows stored selection + Continue) → **reload mid-run
+  re-attaches to the same run and lands back on the frontier question** → `/` redirects to
+  `/default` → `/nonsense` renders the 404. No console errors.
+- **Bugs found and fixed during verification**:
+  1. `scale(min(100vw/1280, 100vh/720))` is invalid CSS — a length divided by a number is still a
+     length, so `scale()` dropped the whole transform and the stage overflowed. Stage now measures
+     the viewport in a client effect and stays `visibility: hidden` until measured (no flash, no
+     hydration mismatch).
+  2. `react-hooks/set-state-in-effect` (the eslint-config-next 16 rule set) flagged three sync
+     setStates in effects — reduced-motion hook now lazy-initialises from `matchMedia`; the resume
+     flow resolves through a promise; the auto-advance effect no longer clears its own stale id
+     (the guard just never schedules for a mismatched id).
+  3. Test-helper bug (not machine): `playThrough` skipped answers at section boundaries, and the
+     results expectation missed the final section-end ADVANCE. Machine semantics confirmed correct.
+- `pnpm lint` 0 errors ✓; `tsc --noEmit` exit 0 ✓; `pnpm test:int` **22 passed** ✓.
+- **Known**: the browser-use automation's synthetic Enter does not activate a focused button (no
+  answer POST fires) — not an app bug (mouse click path verified); real keyboard activation is
+  covered by the Playwright e2e (`page.keyboard.press('Enter')`) which still awaits the chromium
+  download. The e2e spec was rewritten for the game shell (redirect, intake → first question with
+  keyboard answer + advance, /nonsense 404, portrait rotate-to-play).
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 
