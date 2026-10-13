@@ -15,8 +15,8 @@ Last updated: 2026-10-13
 | M2 | Backend model | **complete** | `modes` + `submissions` collections, explicit access control, idempotent seed of `default`; verified via /admin UI, REST API and psql (see log below) |
 | M3 | Game shell | **complete** | `/[mode]` routing + fallback resolver, title/intake/question/section-end/results scenes on a scaled 1280×720 stage, pure scene machine, server-run resume; verified in a real browser (see log below) |
 | M4 | Archery section | **complete** | question screen is fully art-driven (targets/bubble/attack choreography); verified live end to end in a real browser + e2e (see log below) |
-| M5 | Boxing + swordsmanship | pending | |
-| M6 | Scoring + results | pending | |
+| M5 | Boxing + swordsmanship | **complete** | sections 2/3 are prop-driven reuse of the M4 reference; band-driven section-end animation (text + asset slot + knight pose); verified live with all 15 questions and all three bands (see log below) |
+| M6 | Scoring + results | pending | `scoring.ts` already landed in M5; remaining: results screen (score + breakdown + final pose), shareable permalink |
 | M7 | QWEN report | pending | |
 | M8 | Default art set | pending | needs user sample check before full set |
 | M9 | Re-skin proof (`electric`) | pending | |
@@ -163,6 +163,34 @@ question block of `game.css` (M3 option-grid styles deleted).
   Default stays `chromium` — on a machine with the bundle (or once the download lands) it works
   unchanged. The browser-use synthetic-Enter quirk from M3 still applies (mouse path verified
   live; real keyboard Enter is covered by the Playwright e2e).
+
+## M5 verification log (2026-10-13)
+
+Files added: `src/game/scoring.ts` (pure — `mean`, `sectionBandOf/sectionBand`, `finalBandOf/
+finalBand`; the two band sets stay distinct; nothing is rounded before banding),
+`tests/int/scoring.int.spec.ts` (every §4 boundary incl. unreachable fractional means).
+Rewritten: `src/game/scenes/SectionEnd.tsx` (band → `sectionAnimation` entry; knight pose per band
+celebrate/idle/fail; animation asset slot; caption; decorative frame aria-hidden), `GameShell`
+passes `answers` down, section-end CSS (760px card + animation frame), e2e gained the section-end
+band test.
+
+- **Scoring pulled forward from M6**: M5's done-when ("all three section animations fire on the
+  right band") needs the section band function, and §4 wants the module in one piece — so the
+  whole `scoring.ts` (both band sets, all boundaries) lands now. M6 then owns the results screen,
+  the final pose, the breakdown display and the shareable permalink (and any server-side use of
+  scoring, e.g. caching scores onto the submission).
+- **Live 15-question playthrough in one run** (placeholder art), bands chosen per section:
+  section 1 all option 0 (mean 0) → section end shows archery `0-0.9` copy "arrow completely
+  misses the target, the knight cries", knight pose **fail**, slot "Animation — 0-0.9";
+  section 2 all option 2 (mean 2) → boxing `1-2.9` "knight punches bag, sweats profusely", pose
+  idle; section 3 all option 3 (mean 3) → swordsmanship `3-4` "wooden sword is wielded with
+  mastery, the dummy breaks and knight celebrates", pose **celebrate**. Last section's button is
+  "See the final reckoning →". Run endpoint after the pass: `answerCount: 15, complete: true`.
+- Sections 2/3 question scenes are the same component with section props (background label, chip,
+  knight, targets all follow the section) — matches the boxing/sword wireframes (targets in a row,
+  knight bottom-left); per-section differences are art, absorbed in M8.
+- `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **28 passed** ✓ · `pnpm test:e2e`
+  **9 passed** (incl. the new band test) ✓.
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 

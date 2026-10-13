@@ -189,7 +189,14 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
         )
       }
       case 'sectionEnd':
-        return <SectionEndScene mode={mode} sectionIndex={scene.sectionIndex} onContinue={advance} />
+        return (
+          <SectionEndScene
+            mode={mode}
+            sectionIndex={scene.sectionIndex}
+            answers={state.answers}
+            onContinue={advance}
+          />
+        )
       case 'results':
         return (
           <ResultsScene

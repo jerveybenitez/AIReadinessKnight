@@ -607,9 +607,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  max-width: 680px;
-  padding: 44px 52px;
+  gap: 18px;
+  width: 760px;
+  box-sizing: border-box;
+  padding: 40px 52px;
   background: var(--ark-panel);
   border: 1px solid var(--ark-line);
   border-radius: 18px;
@@ -617,7 +618,7 @@
 }
 
 .ark-section-end-icon {
-  font-size: 52px;
+  font-size: 48px;
   margin: 0;
 }
 
@@ -625,10 +626,36 @@
   font-size: 30px;
 }
 
+/* The band-driven animation frame: knight in the band pose beside the CMS animation asset slot. */
+
+.ark-section-anim {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 16px 20px;
+  border: 1px solid var(--ark-line);
+  border-radius: 14px;
+  background: rgba(9, 9, 18, 0.6);
+}
+
+.ark-section-anim-knight {
+  width: 170px;
+  height: 170px;
+  flex: 0 0 auto;
+}
+
+.ark-section-anim-slot {
+  width: 360px;
+  height: 170px;
+  flex: 0 0 auto;
+}
+
 .ark-section-end-copy {
   margin: 0;
   opacity: 0.85;
   line-height: 1.5;
+  font-size: 17px;
 }
 
 /* ---- results ---- */

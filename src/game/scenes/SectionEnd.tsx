@@ -1,36 +1,71 @@
 'use client'
 
-import type { ResolvedMode } from '../types'
+import { assetOr } from '../assets'
+import { Knight, type KnightPose } from '../components/Knight'
+import { Sprite } from '../components/Sprite'
+import { sectionBand } from '../scoring'
+import type { SectionBandKey } from '../constants'
+import type { AnswerMap, ResolvedMode } from '../types'
 
 /**
- * Section-end screen — stub for M3. M5 adds the band-driven animation (text + asset from the
- * mode's `section_animation`, chosen by the section's mean band from src/game/scoring.ts, M6).
- * The machine already routes here after question 5; the button continues the run.
+ * Section-end screen (§3.3): the band-driven animation. The section's mean lands in exactly one
+ * band — the matching `sectionAnimation` entry supplies the CMS-editable copy (the creative spec
+ * from ai_readiness_questions.json) and the animation asset slot. The knight holds the band pose:
+ * celebrates a 3-4, catches their breath on 1-2.9, knocked on 0-0.9.
+ *
+ * The machine routes here only after question 5 is answered; Continue moves the run on. The frame
+ * is decorative (aria-hidden) — the caption carries the meaning, and reduced motion simply has
+ * nothing to collapse here.
  */
 
 export interface SectionEndSceneProps {
   mode: ResolvedMode
   sectionIndex: number
+  answers: AnswerMap
   onContinue: () => void
 }
 
-export function SectionEndScene({ mode, sectionIndex, onContinue }: SectionEndSceneProps) {
+const BAND_POSE: Record<SectionBandKey, KnightPose> = {
+  '3-4': 'celebrate',
+  '1-2.9': 'idle',
+  '0-0.9': 'fail',
+}
+
+export function SectionEndScene({ mode, sectionIndex, answers, onContinue }: SectionEndSceneProps) {
   const section = mode.sections[sectionIndex]
   const isLast = sectionIndex === mode.sections.length - 1
+
+  if (!section) {
+    return (
+      <section className="ark-scene ark-section-end-scene" aria-labelledby="ark-section-end-heading">
+        <h2 id="ark-section-end-heading" tabIndex={-1}>
+          This section is missing from the mode.
+        </h2>
+      </section>
+    )
+  }
+
+  const band = sectionBand(section.questions.map((question) => answers[question.id]?.score ?? 0))
+  const animation = section.sectionAnimation[band]
 
   return (
     <section className="ark-scene ark-section-end-scene" aria-labelledby="ark-section-end-heading">
       <div className="ark-section-end-card">
         <p className="ark-section-end-icon" aria-hidden="true">
-          {section?.icon || '◆'}
+          {section.icon || '◆'}
         </p>
         <h2 id="ark-section-end-heading" tabIndex={-1}>
-          {section?.name ?? 'Section'} — training complete
+          {section.name} — training complete
         </h2>
-        <p className="ark-section-end-copy">
-          The {section?.name.toLowerCase() ?? 'section'} drills are done. Your knight catches their breath.
-        </p>
-        <button type="button" className="ark-btn ark-btn--primary" onClick={onContinue} autoFocus>
+        <div className="ark-section-anim" aria-hidden="true">
+          <Knight poses={section.assets.knight} pose={BAND_POSE[band]} className="ark-section-anim-knight" />
+          <Sprite
+            asset={assetOr(animation.asset, `Animation — ${band}`, 'effect')}
+            className="ark-section-anim-slot"
+          />
+        </div>
+        <p className="ark-section-end-copy">{animation.text}</p>
+        <button type="button" className="ark-btn ark-btn--primary" onClick={onContinue}>
           {isLast ? 'See the final reckoning' : 'Next training ground'} →
         </button>
       </div>

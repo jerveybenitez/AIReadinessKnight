@@ -55,6 +55,25 @@ test.describe('Frontend — game shell', () => {
     await expect(page.getByText('Question 2 of 5 · Section 1 of 3')).toBeVisible()
   })
 
+  test('section end fires the band animation for the finished section', async ({ page }) => {
+    await page.goto('http://localhost:3000/default')
+
+    await page.getByRole('button', { name: 'Begin training' }).click()
+    await page.getByLabel('Knight name').fill('Sir Band')
+    await page.getByLabel('Company').fill('Low Score Ltd')
+    await page.getByRole('button', { name: 'Enter the training grounds' }).click()
+
+    // Answer all five archery questions with the first option (score 0 each) → mean 0 → band 0-0.9.
+    for (let question = 1; question <= 5; question += 1) {
+      await expect(page.getByText(`Question ${question} of 5 · Section 1 of 3`)).toBeVisible()
+      await page.getByRole('group', { name: 'Answer options' }).getByRole('button').first().click()
+    }
+
+    await expect(page.getByRole('heading', { level: 2 })).toContainText('training complete')
+    await expect(page.getByText('arrow completely misses the target, the knight cries')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Next training ground' })).toBeVisible()
+  })
+
   test('an unknown mode is a 404', async ({ page }) => {
     const response = await page.goto('http://localhost:3000/nonsense')
     expect(response?.status()).toBe(404)
