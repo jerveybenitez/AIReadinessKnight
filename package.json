@@ -1,7 +1,7 @@
 {
   "name": "ai-ready-knight",
   "version": "1.0.0",
-  "description": "A blank template to get started with Payload 3.0",
+  "description": "A gamified AI-readiness assessment — knight training game on Payload 3 + Next.js",
   "license": "MIT",
   "type": "module",
   "scripts": {

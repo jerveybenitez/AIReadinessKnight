@@ -156,14 +156,15 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
     dispatch({ type: 'ADVANCE' })
   }, [])
 
-  // Focus follows the scene: keyboard players land on the new screen's heading.
+  // Focus follows the scene: keyboard players land on the new screen's heading — including the
+  // resume-error recovery screen, which a keyboard user must be able to act on. During the
+  // 'resuming' phase there is no heading to focus, so the query is simply a no-op.
   const sceneRef = useRef<HTMLDivElement>(null)
   const sceneKey =
     state.scene.name === 'question'
       ? `question:${state.scene.sectionIndex}:${state.scene.questionIndex}`
       : state.scene.name
   useEffect(() => {
-    if (phase.name !== 'ready') return
     sceneRef.current?.querySelector<HTMLElement>('h1, h2')?.focus()
   }, [sceneKey, phase.name])
 

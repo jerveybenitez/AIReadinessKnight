@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AI-Ready Knight">
+  <title>AI-Ready Knight</title>
+  <!-- Archery target: cream / red-oxide / gold rings with flat dark outlines (the game palette). -->
+  <circle cx="33" cy="31" r="27.5" fill="#f2e6cc" stroke="#2e221a" stroke-width="3"/>
+  <circle cx="33" cy="31" r="17.5" fill="#b5442e" stroke="#2e221a" stroke-width="3"/>
+  <circle cx="33" cy="31" r="9" fill="#e8b93c" stroke="#2e221a" stroke-width="3"/>
+  <!-- Arrow in flight from the lower left, steel head in the bullseye. -->
+  <g stroke-linecap="round">
+    <line x1="8" y1="56" x2="31" y2="33" stroke="#2e221a" stroke-width="6.5"/>
+    <line x1="8" y1="56" x2="31" y2="33" stroke="#8a6a44" stroke-width="3"/>
+    <polygon points="38,26 31.5,33.5 28.5,27" fill="#4a5568" stroke="#2e221a" stroke-width="2" stroke-linejoin="round"/>
+  </g>
+</svg>

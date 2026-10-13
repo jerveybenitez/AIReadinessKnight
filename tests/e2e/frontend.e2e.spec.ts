@@ -219,4 +219,150 @@ test.describe('Frontend — game shell', () => {
     await expect(freshPage.getByText('Question 4 of 5 · Section 1 of 3')).toBeVisible()
     await fresh.close()
   })
+
+  test('keyboard only: Tab, arrows and Enter carry a full playthrough all the way to the report', async ({ page }) => {
+    test.setTimeout(120_000)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('http://localhost:3000/default')
+
+    // Title: the shell lands focus on the heading; one Tab reaches the only control.
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Begin training' })).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    // Intake: heading focused, then Tab walks the fields; everything is typed, nothing is clicked.
+    await expect(page.getByRole('heading', { name: 'Knight intake' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.getByLabel('Knight name')).toBeFocused()
+    await page.keyboard.type('Sir Keyboard')
+    await page.keyboard.press('Tab')
+    await expect(page.getByLabel('Company')).toBeFocused()
+    await page.keyboard.type('Tabcastle Ltd')
+    await page.keyboard.press('Tab')
+    await expect(page.getByLabel('Industry (optional)')).toBeFocused()
+    await page.keyboard.type('Software')
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Enter the training grounds' })).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    // 15 questions, all answered with the first option (score 0 → every band 0-0.9, final mean 0.0).
+    // Per question: the shell focuses the new heading, the first arrow lands the row on option 1,
+    // Enter selects it.
+    const options = page.getByRole('group', { name: 'Answer options' }).getByRole('button')
+    for (let question = 1; question <= 15; question += 1) {
+      const inSection = ((question - 1) % 5) + 1
+      const sectionNumber = Math.floor((question - 1) / 5) + 1
+      const heading = page.getByRole('heading', { level: 2 })
+
+      await expect(heading).toContainText(`Q${inSection}.`)
+      await expect(page.getByText(`Question ${inSection} of 5 · Section ${sectionNumber} of 3`)).toBeVisible()
+      await expect(heading).toBeFocused()
+
+      await page.keyboard.press('ArrowRight')
+      await expect(options.first()).toBeFocused()
+      await page.keyboard.press('Enter')
+
+      if (question === 5 || question === 10) {
+        await expect(heading).toContainText('training complete')
+        await expect(heading).toBeFocused()
+        await page.keyboard.press('Tab')
+        await expect(page.getByRole('button', { name: 'Next training ground' })).toBeFocused()
+        await page.keyboard.press('Enter')
+      }
+    }
+
+    // The last section-end beat leads into the reckoning.
+    const sectionEndHeading = page.getByRole('heading', { level: 2 })
+    await expect(sectionEndHeading).toContainText('training complete')
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'See the final reckoning' })).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    const resultsHeading = page.getByRole('heading', { level: 2 })
+    await expect(resultsHeading).toContainText('The training is complete, Sir Keyboard')
+    await expect(resultsHeading).toBeFocused()
+    await expect(page.getByText('Overall score: 0.0 / 4 · Low average')).toBeVisible()
+
+    // The report opens from the keyboard too (offline fallback wording is expected — the suite
+    // runs against a dead endpoint by design).
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Read the full report' })).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('heading', { name: 'Readiness report' })).toBeVisible()
+    await expect(page.locator('.ark-report-provenance')).toHaveText(
+      /Written by QWEN from your answers\.|Written from your scores — the AI scribe was offline\./,
+      { timeout: 45_000 },
+    )
+  })
+
+  test('an answer that fails to save raises an alert, leaves the run in place, and can be retried', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+
+    const answerUrl = '**/api/submissions/runs/*/answer'
+    await page.route(answerUrl, async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'The scribe lost the scrolls (test).' }),
+      })
+    })
+
+    await page.goto('http://localhost:3000/default')
+    await page.getByRole('button', { name: 'Begin training' }).click()
+    await page.getByLabel('Knight name').fill('Sir Retry')
+    await page.getByLabel('Company').fill('Flaky Keep Ltd')
+    await page.getByRole('button', { name: 'Enter the training grounds' }).click()
+
+    await expect(page.getByText('Question 1 of 5 · Section 1 of 3')).toBeVisible()
+    const options = page.getByRole('group', { name: 'Answer options' }).getByRole('button')
+    await options.nth(2).click()
+
+    // The failure is announced, the machine stays on the question, nothing is marked chosen.
+    // (Filtered by content: Next's route announcer is also a role="alert" element on the page.)
+    const alert = page.getByRole('alert').filter({ hasText: 'The scribe lost the scrolls' })
+    await expect(alert).toHaveText('The scribe lost the scrolls (test).')
+    await expect(page.getByText('Question 1 of 5 · Section 1 of 3')).toBeVisible()
+    await expect(options.nth(2)).not.toHaveAttribute('aria-pressed', 'true')
+
+    // With the fault removed, the same answer goes through and the run advances normally.
+    // (Under reduced motion the advance is immediate, so the pressed state itself is transient —
+    // the observable contract here is that question 2 arrives and the alert clears.)
+    await page.unroute(answerUrl)
+    await options.nth(2).click()
+    await expect(page.getByText('Question 2 of 5 · Section 1 of 3')).toBeVisible()
+    await expect(alert).toHaveCount(0)
+  })
+
+  test('an unreachable server while restoring a run shows the recovery screen, and Try again recovers', async ({ page }) => {
+    const runUrl = '**/api/submissions/runs/*'
+    await page.route(runUrl, async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'The keep is unreachable (test).' }),
+      })
+    })
+
+    await page.goto('http://localhost:3000/default?run=missing-run')
+
+    // The recovery scene is a real scene: its heading takes focus and both ways out are present.
+    const heading = page.getByRole('heading', { name: 'Your session could not be restored' })
+    await expect(heading).toBeVisible()
+    await expect(heading).toBeFocused()
+    await expect(page.getByText('The keep is unreachable (test).')).toBeVisible()
+
+    // Once the server answers again, Try again resolves the dead pointer to a fresh title screen.
+    await page.unroute(runUrl)
+    await page.getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByRole('button', { name: 'Begin training' })).toBeVisible()
+  })
+
+  test('an unknown /result/<runId> is a 404', async ({ page }) => {
+    const response = await page.goto('http://localhost:3000/result/definitely-not-a-run')
+
+    expect(response?.status()).toBe(404)
+    await expect(page.locator('body')).toContainText(/404|could not be found/i)
+    await expect(page.locator('.ark-stage')).toHaveCount(0)
+  })
 })

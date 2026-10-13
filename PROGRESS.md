@@ -20,7 +20,7 @@ Last updated: 2026-10-13
 | M7 | QWEN report | **complete** | server-side generation (env-driven, `QWEN_DISABLE_THINKING` for the hybrid reasoning model), schema-validated structured JSON, deterministic per-band fallback, cached once per run on the submission; verified live against the hosted endpoint (tailored report in 6.6s) **and** with the endpoint dead (complete template report) — see log below |
 | M8 | Default art set | **complete** | full set generated, processed (`art/default/**`, 40 files), wired (`pnpm art:wire`, all 43 slots resolve), verified in-game — see the completion log below |
 | M9 | Re-skin proof (`electric`) | **complete** | `electric` shipped through the real `/admin` UI (duplicate → rename → partial upload → save), per-slot fallback proven by scripted playthroughs with one *and* three assets; operator guide is `docs/modes.md` (see log below) |
-| M10 | Hardening | pending | |
+| M10 | Hardening | **complete** | README rewritten for a new developer; docker-compose is postgres-only; favicon added (no more console 404); a11y pass (keyboard-only full playthrough e2e + recovery-screen focus); error-state e2e (answer failure, resume failure, unknown `/result` 404); all gates green — `pnpm test` 74 int + 15 e2e (see log below) |
 
 ## M1 verification log (2026-10-13)
 
@@ -440,6 +440,64 @@ plus consumers): question subfield `id` → `key` (+ SQL migration on `modes_sec
   endpoint) · verify-electric **partial + full PASSED** ✓.
 - Known cosmetic (deferred to M10): the template app 404s `/favicon.ico` (one informational
   console line during verification).
+
+## M10 completion log (2026-10-13)
+
+**README** — full rewrite ([`README.md`](README.md)): what the game is, prerequisites (Node ≥
+20.18.1, pnpm 9/10/11, Postgres, optional OpenAI-compatible endpoint), quick start (`cp
+.env.example .env` → `pnpm install` → `pnpm seed` → `pnpm dev`, first `/admin` visit creates the
+first user), how a run flows, the mode system pointing at `docs/modes.md`, the art pipeline
+(`docs/art-prompts.md`, `scripts/art/`, `pnpm art:wire`), the QWEN env contract incl.
+`QWEN_DISABLE_THINKING` (also added to `.env.example`, commented), and the test notes that matter:
+`pnpm test:int` uses the `.env` DB; **e2e reuses a running :3000 server, so point it at a dead
+endpoint first** (`QWEN_BASE_URL=http://127.0.0.1:9/v1 pnpm dev`); `PW_CHANNEL=chrome` when the
+bundled Chromium is unavailable. `package.json` description updated off the template placeholder.
+
+**Housekeeping** —
+- `docker-compose.yml` rewritten from the stale mongo+payload scaffold to a **postgres-only
+  optional dev DB** (`postgres:17-alpine`, user/db `payload`/`ai_ready_knight`, healthcheck),
+  matching `.env.example`/README. Docker is not installed on this machine, so it is
+  **YAML-syntax-validated only** (parsed with js-yaml; fields inspected) — never `up`-tested.
+- **Favicon**: `src/app/(frontend)/icon.svg` — an archery-target-and-arrow mark in the game palette
+  (three candidate designs rendered at 16/32/128 on light and dark, picked the crispest). Next
+  serves it as a hashed URL and injects `<link rel="icon">` (verified: `/icon-4usi79.svg…` → 200
+  `image/svg+xml`); a real-Chrome probe of `/default` now shows **no failed requests and no console
+  errors** — the favicon 404 from M9 is gone (the raw `/favicon.ico` path still 404s by design, but
+  nothing requests it once the link is declared).
+
+**Accessibility pass** (behavioral, no new dependency — axe rejected on purpose: the game's a11y
+contract is *drivability* — real `<button>` targets, roving focus, scene-heading focus, live
+regions — and the suite exercises all of it; a static-tree rule scanner would add a dependency and
+flag false positives against the decorative stage without proving anything the tests below don't) —
+- New e2e: **keyboard-only full playthrough** — Tab/arrows/Enter only, no mouse: title → intake
+  (typed) → 15 questions (first arrow lands the row, Enter answers) → both section beats → results
+  → report opens; asserts focus lands on each new scene heading and on every control before Enter.
+- Fixed in `GameShell.tsx`: the recovery screen was reachable by keyboard but focus never moved to
+  it (the focus effect bailed unless `phase === 'ready'`). The guard is gone; the effect is now a
+  no-op while nothing focusable exists. The new resume-failure test asserts the recovery heading is
+  focused.
+
+**Error states** — three new e2e tests:
+- *Answer save fails*: POST `/answer` answered with a 500+`{error}` → the banner (`role="alert"`)
+  shows the server's message, the machine stays on the question, nothing is marked chosen; after
+  `unroute`, the same click goes through and Q2 arrives.
+- *Resume with the server down*: `?run=` + GET 500 → "Your session could not be restored" with the
+  message, both recovery actions present; after `unroute`, **Try again** resolves to the title.
+- *Unknown `/result/<runId>`*: 404 status, no game stage rendered.
+- (Portrait rotate-to-play and the offline-report fallback were already covered by the M4/M7-era
+  tests; both still pass unchanged.)
+
+**Two test-vs-reality findings during the run** (kept here for future sessions): Next's router
+announcer div is also `role="alert"`, so the banner assertion filters by content; and under reduced
+motion the `aria-pressed` window on a retried answer is ~one frame, so the retry asserts the
+observable contract (advance + alert cleared) instead.
+
+**Gates** (all against the **dead endpoint** server, `QWEN_BASE_URL=http://127.0.0.1:9/v1 pnpm
+dev`, so no billed call): `pnpm lint` **0 errors** ✓ · `pnpm exec tsc --noEmit` **0** ✓ ·
+`pnpm test:int` **74 passed** (6 files) ✓ · `pnpm test:e2e` **15 passed** (12 frontend + 3 admin;
+11 pre-existing + 4 new) ✓ · `pnpm test` chain **exit 0** ✓ · manual open: title + Q1 rendered
+correctly in real Chrome (screenshots checked), `/admin` 200 ✓.
+
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 
