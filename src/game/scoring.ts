@@ -1,4 +1,5 @@
-import type { FinalBandKey, SectionBandKey } from './constants'
+import type { FinalBandKey, SectionBandKey, SectionKey } from './constants'
+import type { AnswerMap } from './types'
 
 /**
  * Scoring — the single, pure home of every score decision (QODER.md §4, settled).
@@ -42,4 +43,69 @@ export function finalBandOf(meanScore: number): FinalBandKey {
 
 export function finalBand(scores: number[]): FinalBandKey {
   return finalBandOf(mean(scores))
+}
+
+// --- whole-run scoring ------------------------------------------------------------------------
+
+/** The mode shape scoring needs: the canonical question ids per section, in order. */
+export interface ScoreSectionInput {
+  key: SectionKey
+  questionIds: string[]
+}
+
+export interface SectionScore {
+  key: SectionKey
+  mean: number
+  band: SectionBandKey
+  answered: number
+  total: number
+}
+
+/** Everything the results screen needs — computed once, from persisted answers. */
+export interface RunScore {
+  mean: number
+  band: FinalBandKey
+  answered: number
+  total: number
+  sections: SectionScore[]
+}
+
+/**
+ * Score a run against the mode's *current* sections.
+ *
+ * - Only question ids the mode still has count: an answer to a question a re-skin removed can
+ *   never skew a score. Mean is over answers that exist (a partial run scores what it answered);
+ *   a complete run — the only run the results screen accepts — always has all 15.
+ * - Section means are over the *answered* scores; the final mean is over every answered score
+ *   across all sections, never the mean of the section means (which would silently re-weight a
+ *   mode with uneven section sizes).
+ */
+export function scoreRun(sections: ScoreSectionInput[], answers: AnswerMap): RunScore {
+  const allScores: number[] = []
+  const sectionScores: SectionScore[] = sections.map((section) => {
+    const scores: number[] = []
+    for (const questionId of section.questionIds) {
+      const answer = answers[questionId]
+      if (!answer) continue
+      scores.push(answer.score)
+      allScores.push(answer.score)
+    }
+    const sectionMean = mean(scores)
+    return {
+      key: section.key,
+      mean: sectionMean,
+      band: sectionBandOf(sectionMean),
+      answered: scores.length,
+      total: section.questionIds.length,
+    }
+  })
+
+  const overallMean = mean(allScores)
+  return {
+    mean: overallMean,
+    band: finalBandOf(overallMean),
+    answered: allScores.length,
+    total: sections.reduce((n, section) => n + section.questionIds.length, 0),
+    sections: sectionScores,
+  }
 }

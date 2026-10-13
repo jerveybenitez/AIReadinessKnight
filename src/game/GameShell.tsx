@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { Stage } from './components/Stage'
 import { canGoBack, initialState, reduce, type GameState, type GameEvent } from './machine'
 import { clearRunId, createRun, fetchRun, readRunId, saveRunId, submitAnswer } from './run-client'
+import { scoreRun } from './scoring'
 import { IntakeScene, type IntakeFields } from './scenes/Intake'
 import { QuestionScene, type QuestionAction } from './scenes/Question'
 import { ResultsScene } from './scenes/Results'
@@ -17,6 +18,10 @@ import './game.css'
  * The stage shell: owns the machine instance, the run pointer, and the server writes.
  * Everything about "where am I" lives in the machine (src/game/machine.ts); this component only
  * wires events to it and renders the resulting scene.
+ *
+ * `initialRunId` arrives from ?run= on the mode URL — the mid-run permalink handed to someone in
+ * a fresh browser. It is tried before the session's own stored pointer; the first valid run for
+ * this mode wins and becomes the session's pointer.
  */
 
 interface RunMeta {
@@ -39,7 +44,7 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-export function GameShell({ mode }: { mode: ResolvedMode }) {
+export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialRunId?: string }) {
   const sections = useMemo(
     () => mode.sections.map((section) => ({ key: section.key, questionIds: section.questions.map((q) => q.id) })),
     [mode],
@@ -58,21 +63,32 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
   const [actionFor, setActionFor] = useState<QuestionAction | null>(null)
   const reducedMotion = usePrefersReducedMotion()
 
-  // Resume: re-attach to the run this session last wrote for this mode (ADR 0002).
+  // Resume, in priority order: the ?run= pointer from the URL (a permalink handed to this
+  // browser), then the session's own pointer for this mode (ADR 0002). The first run that
+  // exists and belongs to this mode wins; stale pointers are cleared, never adopted.
   useEffect(() => {
     let cancelled = false
-    const runId = readRunId(mode.slug)
-    const attempt: Promise<RunSnapshot | null> = runId ? fetchRun(runId) : Promise.resolve(null)
-    attempt
+    const storedId = readRunId(mode.slug)
+
+    const load = async (): Promise<RunSnapshot | null> => {
+      const candidates = [...new Set([initialRunId, storedId].filter((id): id is string => Boolean(id)))]
+      for (const id of candidates) {
+        const snapshot = await fetchRun(id)
+        if (snapshot && snapshot.modeSlug === mode.slug) return snapshot
+        if (id === storedId) clearRunId(mode.slug) // deleted run, or one that belongs to another mode
+      }
+      return null
+    }
+
+    load()
       .then((snapshot) => {
         if (cancelled) return
-        if (!snapshot || snapshot.modeSlug !== mode.slug) {
-          // Deleted run, or a run that belongs to another mode — start fresh.
-          if (runId) clearRunId(mode.slug)
+        if (!snapshot) {
           setRun(null)
         } else {
           const answers: AnswerMap = {}
           for (const answer of snapshot.answers) answers[answer.questionId] = answer
+          saveRunId(mode.slug, snapshot.runId) // an adopted permalink sticks for the session
           setRun({ runId: snapshot.runId, knightName: snapshot.knightName })
           dispatch({ type: 'RESUME', answers })
         }
@@ -88,7 +104,7 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
     return () => {
       cancelled = true
     }
-  }, [mode.slug, resumeAttempt])
+  }, [mode.slug, resumeAttempt, initialRunId])
 
   const handleIntakeDone = useCallback(
     async (fields: IntakeFields) => {
@@ -203,6 +219,7 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
             mode={mode}
             knightName={run?.knightName ?? 'knight'}
             runId={run?.runId ?? ''}
+            score={scoreRun(sections, state.answers)}
           />
         )
     }

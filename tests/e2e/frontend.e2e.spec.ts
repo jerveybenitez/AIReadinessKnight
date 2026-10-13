@@ -86,4 +86,96 @@ test.describe('Frontend — game shell', () => {
     await expect(page.getByText('Rotate your device to play.')).toBeVisible()
     await expect(page.locator('.ark-stage')).toBeHidden()
   })
+
+  test('a full playthrough scores correctly and the permalink reopens the result in a fresh browser', async ({
+    page,
+    browser,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('http://localhost:3000/default')
+
+    await page.getByRole('button', { name: 'Begin training' }).click()
+    await page.getByLabel('Knight name').fill('Sir Scoresalot')
+    await page.getByLabel('Company').fill('Bandcastle Ltd')
+    await page.getByRole('button', { name: 'Enter the training grounds' }).click()
+
+    // Section 1 → last option (score 4, mean 4 → band 3-4); section 2 → middle option (score 2,
+    // mean 2 → band 1-2.9); section 3 → first option (score 0, mean 0 → band 0-0.9).
+    const optionIndex = [4, 2, 0]
+    for (let question = 1; question <= 15; question += 1) {
+      const section = Math.floor((question - 1) / 5)
+      await page.getByRole('group', { name: 'Answer options' }).getByRole('button').nth(optionIndex[section]).click()
+      if (question % 5 === 0 && question < 15) {
+        await page.getByRole('button', { name: 'Next training ground' }).click()
+      }
+    }
+    await page.getByRole('button', { name: 'See the final reckoning' }).click()
+
+    // 15 scores: 5×4 + 5×2 + 5×0 → overall mean 2.0 → final band 'average'.
+    await expect(page.getByRole('heading', { level: 2 })).toContainText('The training is complete, Sir Scoresalot')
+    await expect(page.getByText('Overall score: 2.0 / 4 · Average')).toBeVisible()
+
+    const archery = page.getByRole('listitem').filter({ hasText: 'AI Use-Case' })
+    await expect(archery).toContainText('4.0 / 4')
+    await expect(archery).toContainText('3-4')
+
+    const boxing = page.getByRole('listitem').filter({ hasText: 'AI Talent' })
+    await expect(boxing).toContainText('2.0 / 4')
+    await expect(boxing).toContainText('1-2.9')
+
+    const swordsmanship = page.getByRole('listitem').filter({ hasText: 'AI Execution' })
+    await expect(swordsmanship).toContainText('0.0 / 4')
+    await expect(swordsmanship).toContainText('0-0.9')
+
+    // The permalink is the access token — reopen it in a context with no storage at all.
+    const permalink = page.locator('.ark-results-permalink-text')
+    await expect(permalink).toContainText('http://localhost:3000/result/')
+    const url = ((await permalink.textContent()) ?? '').trim()
+
+    // The copy button puts the absolute URL on the clipboard.
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.getByRole('button', { name: 'Copy link' }).click()
+    await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(url)
+
+    const fresh = await browser.newContext()
+    const freshPage = await fresh.newPage()
+    await freshPage.goto(url)
+
+    await expect(freshPage.getByRole('heading', { level: 2 })).toContainText('The training is complete, Sir Scoresalot')
+    await expect(freshPage.getByText('Overall score: 2.0 / 4 · Average')).toBeVisible()
+    await expect(freshPage.getByRole('listitem').filter({ hasText: 'AI Talent' })).toContainText('1-2.9')
+    await expect(freshPage.getByRole('listitem').filter({ hasText: 'AI Use-Case' })).toContainText('3-4')
+    await fresh.close()
+  })
+
+  test('an unfinished run sent to /result/<runId> redirects into the game and resumes at the frontier', async ({
+    page,
+    browser,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('http://localhost:3000/default')
+
+    await page.getByRole('button', { name: 'Begin training' }).click()
+    await page.getByLabel('Knight name').fill('Sir Halfway')
+    await page.getByLabel('Company').fill('Midrun Ltd')
+    await page.getByRole('button', { name: 'Enter the training grounds' }).click()
+
+    for (let question = 1; question <= 3; question += 1) {
+      await page.getByRole('group', { name: 'Answer options' }).getByRole('button').first().click()
+    }
+    await expect(page.getByText('Question 4 of 5 · Section 1 of 3')).toBeVisible()
+
+    const runId = await page.evaluate(() => window.sessionStorage.getItem('ark:run:default'))
+    expect(runId).toBeTruthy()
+
+    // A fresh browser knows nothing about this run — the URL alone must carry it into the game.
+    const fresh = await browser.newContext()
+    const freshPage = await fresh.newPage()
+    await freshPage.goto(`http://localhost:3000/result/${runId}`)
+
+    await expect(freshPage).toHaveURL(new RegExp(`/default\\?run=${runId as string}$`))
+    await expect(freshPage.getByText('Question 4 of 5 · Section 1 of 3')).toBeVisible()
+    await fresh.close()
+  })
 })

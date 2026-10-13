@@ -13,14 +13,17 @@ const loadMode = cache(loadResolvedMode)
 
 interface ModePageProps {
   params: Promise<{ mode: string }>
+  /** `?run=<runId>` — a permalink for a run that is not finished; the shell adopts it on load. */
+  searchParams: Promise<{ run?: string | string[] }>
 }
 
-export default async function ModePage({ params }: ModePageProps) {
+export default async function ModePage({ params, searchParams }: ModePageProps) {
   const { mode: slug } = await params
+  const { run } = await searchParams
   const mode = await loadMode(slug)
   if (!mode) notFound()
 
-  return <GameShell mode={mode} />
+  return <GameShell mode={mode} initialRunId={typeof run === 'string' && run ? run : undefined} />
 }
 
 export async function generateMetadata({ params }: ModePageProps): Promise<Metadata> {

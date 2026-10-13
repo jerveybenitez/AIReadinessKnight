@@ -1,7 +1,8 @@
 import type { Endpoint, PayloadRequest } from 'payload'
 
-import type { Answer, AnswerAck, RunSnapshot } from '../game/types'
-import type { Mode, Submission } from '@/payload-types'
+import type { Answer, AnswerAck } from '../game/types'
+import { findRun, loadRunSnapshot } from '../game/run-server'
+import type { Mode } from '@/payload-types'
 
 /**
  * Player-facing run endpoints, mounted under /api/submissions.
@@ -29,46 +30,6 @@ async function readBody(req: PayloadRequest): Promise<Record<string, unknown> | 
     return body as Record<string, unknown>
   } catch {
     return null
-  }
-}
-
-const findRun = async (req: PayloadRequest, runId: string): Promise<Submission | null> => {
-  const { docs } = await req.payload.find({
-    collection: 'submissions',
-    where: { runId: { equals: runId } },
-    limit: 1,
-    depth: 0,
-    req,
-    overrideAccess: true, // server-side surface; access is the runId itself
-  })
-  return docs[0] ?? null
-}
-
-const modeSlugOf = async (req: PayloadRequest, mode: Submission['mode']): Promise<string> => {
-  if (typeof mode === 'object' && mode !== null) return (mode as Mode).slug
-  const doc = await req.payload.findByID({
-    collection: 'modes',
-    id: typeof mode === 'number' ? mode : Number(mode),
-    depth: 0,
-    req,
-  })
-  return (doc as Mode).slug
-}
-
-const snapshotOf = (run: Submission, modeSlug: string): RunSnapshot => {
-  const answers = (run.answers ?? []).map((a) => ({
-    questionId: a.questionId,
-    sectionKey: a.sectionKey,
-    optionIndex: a.optionIndex,
-    score: a.score,
-  }))
-  return {
-    runId: run.runId,
-    modeSlug,
-    knightName: run.knightName,
-    answerCount: answers.length,
-    complete: answers.length >= 15,
-    answers,
   }
 }
 
@@ -127,10 +88,10 @@ export const getRunEndpoint: Endpoint = {
     const runId = typeof req.routeParams?.runId === 'string' ? req.routeParams.runId : ''
     if (!runId) return error('Missing run id', 400)
 
-    const run = await findRun(req, runId)
-    if (!run) return error('Run not found', 404)
+    const snapshot = await loadRunSnapshot(req.payload, runId, req)
+    if (!snapshot) return error('Run not found', 404)
 
-    return Response.json(snapshotOf(run, await modeSlugOf(req, run.mode)))
+    return Response.json(snapshot)
   },
 }
 
@@ -152,7 +113,7 @@ export const answerEndpoint: Endpoint = {
       return error('optionIndex must be a non-negative integer', 400)
     }
 
-    const run = await findRun(req, runId)
+    const run = await findRun(req.payload, runId, req)
     if (!run) return error('Run not found', 404)
 
     const mode = (await req.payload.findByID({

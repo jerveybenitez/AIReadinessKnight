@@ -669,9 +669,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  max-width: 720px;
-  padding: 44px 52px;
+  gap: 12px;
+  width: 780px;
+  box-sizing: border-box;
+  padding: 28px 48px;
   background: var(--ark-panel);
   border: 1px solid var(--ark-line);
   border-radius: 18px;
@@ -687,23 +688,112 @@
 }
 
 .ark-results-card h2 {
-  font-size: 32px;
-}
-
-.ark-results-copy {
+  font-size: 28px;
   margin: 0;
-  opacity: 0.85;
-  line-height: 1.5;
 }
 
-.ark-results-permalink {
+.ark-results-final-knight {
+  width: 132px;
+  height: 132px;
+  flex: 0 0 auto;
+}
+
+.ark-results-overall {
+  margin: 0;
+  font-size: 17px;
+}
+
+.ark-results-overall strong {
+  color: var(--ark-accent);
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ark-results-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ark-results-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 16px;
+  border: 1px solid var(--ark-line);
+  border-radius: 12px;
+  background: rgba(9, 9, 18, 0.6);
+}
+
+.ark-results-row-icon {
+  width: 26px;
+  text-align: center;
+}
+
+.ark-results-row-name {
+  flex: 1;
+  text-align: left;
+}
+
+.ark-results-row-mean {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+.ark-results-row-band {
+  padding: 3px 10px;
+  border: 1px solid var(--ark-accent);
+  color: var(--ark-accent);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+
+.ark-results-report {
   margin: 0;
   font-size: 14px;
   opacity: 0.7;
+  line-height: 1.4;
 }
 
-.ark-results-permalink code {
+.ark-results-permalink-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.ark-results-permalink-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
   color: var(--ark-accent);
+  background: rgba(9, 9, 18, 0.6);
+  border: 1px solid var(--ark-line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.ark-btn--compact {
+  font-size: 14px;
+  padding: 8px 14px;
+}
+
+.ark-results-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.ark-results-actions .ark-btn {
+  text-decoration: none;
 }
 
 /* ---- status scenes (resuming / resume error) ---- */

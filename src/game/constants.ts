@@ -19,5 +19,5 @@ export const QUESTIONS_PER_SECTION = 5
 export const OPTIONS_PER_QUESTION = 5
 export const MAX_ANSWERS = SECTIONS_PER_MODE * QUESTIONS_PER_SECTION
 
-/** Slugs the game route must never shadow ((payload) owns /admin and /api; _next is Next internals). */
-export const RESERVED_MODE_SLUGS = ['admin', 'api', '_next'] as const
+/** Slugs the game route must never shadow ((payload) owns /admin and /api; /result is the permalink namespace; _next is Next internals). */
+export const RESERVED_MODE_SLUGS = ['admin', 'api', 'result', '_next'] as const

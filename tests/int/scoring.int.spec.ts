@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { FINAL_BAND_KEYS, SECTION_BAND_KEYS } from '@/game/constants'
-import { finalBand, finalBandOf, mean, sectionBand, sectionBandOf } from '@/game/scoring'
+import { FINAL_BAND_KEYS, SECTION_BAND_KEYS, SECTION_KEYS, type SectionKey } from '@/game/constants'
+import { finalBand, finalBandOf, mean, scoreRun, sectionBand, sectionBandOf } from '@/game/scoring'
+import type { AnswerMap } from '@/game/types'
 
 /**
  * §4 is settled law: every boundary is pinned here, including the fractional means that are not
@@ -76,5 +77,104 @@ describe('the two band sets stay distinct', () => {
     for (const key of FINAL_BAND_KEYS) {
       expect(SECTION_BAND_KEYS as readonly string[]).not.toContain(key)
     }
+  })
+})
+
+// --- scoreRun: the whole-run pipeline the results screen and the permalink route both use -------
+
+const questionIds = (key: SectionKey): string[] =>
+  Array.from({ length: 5 }, (_, index) => `${key}-q${index + 1}`)
+
+const sections = SECTION_KEYS.map((key) => ({ key, questionIds: questionIds(key) }))
+
+/** Build an AnswerMap from per-section score arrays — ids come from the mode shape above. */
+function answersFrom(pattern: Partial<Record<SectionKey, number[]>>): AnswerMap {
+  const answers: AnswerMap = {}
+  for (const section of sections) {
+    const scores = pattern[section.key] ?? []
+    section.questionIds.forEach((questionId, index) => {
+      if (index >= scores.length) return
+      answers[questionId] = {
+        questionId,
+        sectionKey: section.key,
+        optionIndex: scores[index],
+        score: scores[index],
+      }
+    })
+  }
+  return answers
+}
+
+describe('scoreRun', () => {
+  it('scores a full 15-answer run: section bands, overall mean and final band', () => {
+    const score = scoreRun(
+      sections,
+      answersFrom({ archery: [4, 4, 4, 4, 4], boxing: [2, 2, 2, 2, 2], swordsmanship: [0, 0, 0, 0, 0] }),
+    )
+
+    expect(score.sections.map((section) => section.key)).toEqual([...SECTION_KEYS])
+    expect(score.sections.map((section) => section.mean)).toEqual([4, 2, 0])
+    expect(score.sections.map((section) => section.band)).toEqual(['3-4', '1-2.9', '0-0.9'])
+    expect(score.mean).toBe(2)
+    expect(score.band).toBe('average')
+    expect(score.answered).toBe(15)
+    expect(score.total).toBe(15)
+    expect(score.sections.every((section) => section.answered === 5 && section.total === 5)).toBe(true)
+  })
+
+  it('keeps a 2.8 section mean out of the top section band through the full pipeline', () => {
+    const score = scoreRun(sections, answersFrom({ archery: [3, 3, 3, 3, 2] }))
+    expect(score.sections[0].mean).toBe(2.8)
+    expect(score.sections[0].band).toBe('1-2.9') // never rounding 2.8 up to the 3-4 band
+  })
+
+  it('keeps a 2.87 overall mean in average and promotes 2.93 to high_average', () => {
+    const almost = scoreRun(
+      sections,
+      answersFrom({ archery: [3, 3, 3, 3, 3], boxing: [3, 3, 3, 3, 3], swordsmanship: [3, 3, 3, 2, 2] }),
+    )
+    expect(almost.mean).toBeCloseTo(43 / 15, 10)
+    expect(almost.band).toBe('average') // rounding 2.87 to 2.9 would wrongly promote
+
+    const promoted = scoreRun(
+      sections,
+      answersFrom({ archery: [3, 3, 3, 3, 3], boxing: [3, 3, 3, 3, 3], swordsmanship: [3, 3, 3, 3, 2] }),
+    )
+    expect(promoted.band).toBe('high_average') // mean 2.93
+  })
+
+  it('scores an empty run as 0 without crashing', () => {
+    const score = scoreRun(sections, {})
+    expect(score.mean).toBe(0)
+    expect(score.band).toBe('low_average')
+    expect(score.answered).toBe(0)
+    expect(score.total).toBe(15)
+    expect(score.sections.map((section) => section.band)).toEqual(['0-0.9', '0-0.9', '0-0.9'])
+    expect(score.sections.every((section) => section.answered === 0)).toBe(true)
+  })
+
+  it('a partial run scores what was answered, not the unanswered as zero', () => {
+    const score = scoreRun(sections, answersFrom({ archery: [4, 4, 4, 4, 4] }))
+    expect(score.sections[0].answered).toBe(5)
+    expect(score.sections[0].band).toBe('3-4')
+    expect(score.sections[1].answered).toBe(0)
+    expect(score.answered).toBe(5)
+    expect(score.mean).toBe(4)
+    expect(score.band).toBe('high_average')
+  })
+
+  it('ignores answers for question ids the mode no longer has', () => {
+    const answers = answersFrom({ archery: [2, 2, 2, 2, 2] })
+    answers['stale-question-id'] = {
+      questionId: 'stale-question-id',
+      sectionKey: 'archery',
+      optionIndex: 4,
+      score: 4,
+    }
+
+    const score = scoreRun(sections, answers)
+    expect(score.answered).toBe(5) // the stale answer counts towards nothing
+    expect(score.mean).toBe(2)
+    expect(score.sections[0].mean).toBe(2)
   })
 })

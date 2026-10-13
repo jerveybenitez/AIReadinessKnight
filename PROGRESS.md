@@ -16,7 +16,7 @@ Last updated: 2026-10-13
 | M3 | Game shell | **complete** | `/[mode]` routing + fallback resolver, title/intake/question/section-end/results scenes on a scaled 1280×720 stage, pure scene machine, server-run resume; verified in a real browser (see log below) |
 | M4 | Archery section | **complete** | question screen is fully art-driven (targets/bubble/attack choreography); verified live end to end in a real browser + e2e (see log below) |
 | M5 | Boxing + swordsmanship | **complete** | sections 2/3 are prop-driven reuse of the M4 reference; band-driven section-end animation (text + asset slot + knight pose); verified live with all 15 questions and all three bands (see log below) |
-| M6 | Scoring + results | pending | `scoring.ts` already landed in M5; remaining: results screen (score + breakdown + final pose), shareable permalink |
+| M6 | Scoring + results | **complete** | results screen (final knight per band, overall + per-section breakdown), permanent shareable permalink `/result/<runId>` on the unguessable run id, `?run=` adoption for unfinished runs; verified live + e2e incl. a fresh-browser permalink reopen (see log below) |
 | M7 | QWEN report | pending | |
 | M8 | Default art set | pending | needs user sample check before full set |
 | M9 | Re-skin proof (`electric`) | pending | |
@@ -191,6 +191,49 @@ band test.
   knight bottom-left); per-section differences are art, absorbed in M8.
 - `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **28 passed** ✓ · `pnpm test:e2e`
   **9 passed** (incl. the new band test) ✓.
+
+## M6 verification log (2026-10-13)
+
+Files added: `src/game/run-server.ts` (server-only narrow projection — `findRun`/`modeSlugOf`/
+`snapshotOf`/`loadRunSnapshot`; the endpoints and the permalink route now share it so the two
+surfaces can never diverge or leak more than `RunSnapshot`), `src/app/(frontend)/result/[runId]/
+page.tsx` (the permalink), `docs/adr/0004-shareable-permalink.md`. Extended: `src/game/scoring.ts`
+gained `scoreRun(sections, answers)` — per-section `{mean, band, answered, total}` + final
+`{mean, band}`; only question ids the mode *currently* has count (a re-skin can never let a stale
+answer skew a score); final mean is over every answered score, never a mean of section means.
+Rewritten: `src/game/scenes/Results.tsx` (final knight via `results.finalKnight[band]`, overall
+line, breakdown rows with band chips, live permalink + copy button, Train again). Touched:
+`GameShell` (new `initialRunId` prop — resume tries `[?run= pointer, session pointer]`, first valid
+run for the mode wins and is adopted as the session pointer; results case passes
+`scoreRun(sections, state.answers)`), `[mode]/page.tsx` (`searchParams.run` → `initialRunId`),
+`endpoints/runs.ts` (refactored onto `run-server.ts`; `getRunEndpoint` returns `loadRunSnapshot`
+verbatim), `constants.ts` (`result` reserved so no mode can shadow the permalink namespace),
+results block of `game.css`; tests: `scoring.int.spec.ts` +6, `frontend.e2e.spec.ts` +2.
+
+- **e2e full playthrough + permalink reopen**: 15 questions under reduced motion with s1=option 5
+  (4×5 → mean 4 → '3-4'), s2=middle option (2×5 → '1-2.9'), s3=first option (0×5 → '0-0.9') →
+  results heading, "Overall score: 2.0 / 4 · Average", rows show 4.0/3-4, 2.0/1-2.9, 0.0/0-0.9.
+  The permalink is then opened in **`browser.newContext()` — no storage, no session** — and shows
+  the identical heading, overall and breakdown. (§3.4 done-when, both halves.)
+- **e2e unfinished-run handoff**: `/result/<runId>` for a mid-run run answered through q3 → 307 to
+  `/default?run=<runId>` → a fresh context resumes at "Question 4 of 5 · Section 1 of 3" purely
+  from the URL (no sessionStorage in that context) — the `?run=` adoption path.
+- **Live browser** (result permalink of the e2e run): card fits the 632px scene box with room to
+  spare; `generateMetadata` title = "Sir Scoresalot's results — AI-Ready Knight"; heading
+  auto-focused; **no console messages at all**; section names shown are the seed's long-form names
+  ("AI Use-Case & Business Readiness", …). Copy button: e2e grants clipboard permission and asserts
+  the button flips to "Copied" **and the clipboard now holds the absolute permalink URL**; the
+  no-permission path was also exercised live — it shows "Copy failed" and selects the URL text for
+  manual Ctrl+C instead of failing silently. One e2e failure found + fixed: the first selectors
+  used section *keys* (Archery/Boxing) but the cards render section *names* — test-side fix, app
+  was correct.
+- **Scoring contract** re-verified: `scoreRun` boundary tests (2.8 stays '1-2.9'; 2.87 overall
+  stays average; 2.93 promotes; empty run 0; partial run scores only what was answered; a stale
+  question id counts for nothing) — 34 int tests total.
+- ADR 0004 records the permalink contract: route shape, narrow projection, unfinished-run redirect,
+  unknown runId → 404, one shared `ResultsScene` for in-game and permalink.
+- `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **34 passed** ✓ · `pnpm test:e2e`
+  **11 passed** ✓ (PW_CHANNEL=chrome per the M4 known issue; chromium-1208 download still pending).
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 
