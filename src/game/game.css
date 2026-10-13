@@ -129,6 +129,7 @@
 .ark-placeholder--background {
   background: #1c2430;
   font-size: 22px;
+  opacity: 0.45;
 }
 .ark-placeholder--knight {
   background: #6b4f2a;
@@ -320,18 +321,247 @@
   opacity: 0.65;
 }
 
-/* ---- question scene ---- */
+/* ---- question scene (M4 — layout is the reference implementation for every section) ---- */
 
 .ark-question-scene {
-  gap: 22px;
+  display: block;
+  padding: 0;
 }
 
-.ark-question-head {
-  position: relative;
+/* Top band: question text. On hover/focus the speech bubble replaces it visually; the heading
+   stays in the DOM (the bubble is aria-hidden), so the scene label never disappears for AT. */
+
+.ark-q-banner {
+  position: absolute;
+  left: 120px;
+  right: 120px;
+  top: 30px;
   text-align: center;
+  transition: opacity 140ms ease;
+}
+
+.ark-q-banner[data-hidden='true'] {
+  opacity: 0;
+}
+
+.ark-q-banner h2 {
+  font-size: 28px;
+  line-height: 1.3;
+  margin: 0;
+  max-width: 1000px;
+  margin-inline: auto;
+}
+
+.ark-bubble {
+  position: absolute;
+  left: 70px;
+  right: 70px;
+  top: 26px;
+  min-height: 118px;
+  box-sizing: border-box;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 26px;
+  background: rgba(14, 14, 24, 0.96);
+  border: 2px solid var(--ark-accent);
+  border-radius: 16px;
+  z-index: 3;
+}
+
+.ark-bubble-text {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.ark-bubble-tail {
+  position: absolute;
+  bottom: -12px;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  transform: rotate(45deg);
+  background: rgba(14, 14, 24, 0.96);
+  border-right: 2px solid var(--ark-accent);
+  border-bottom: 2px solid var(--ark-accent);
+}
+
+/* Middle band: the five targets — real buttons, score 0→4 left to right. Geometry matches the
+   constants in scenes/Question.tsx (row at 70/70, targets 200px, gap 35px, top 198px). */
+
+.ark-targets {
+  position: absolute;
+  left: 70px;
+  top: 198px;
+  display: flex;
+  gap: 35px;
+}
+
+.ark-target {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.ark-target--hover {
+  transform: translateY(-8px) scale(1.05);
+}
+
+.ark-target:hover:not(:disabled) {
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--ark-accent) 55%, transparent));
+}
+
+.ark-target:focus-visible {
+  outline: 3px solid var(--ark-accent);
+  outline-offset: 3px;
+}
+
+.ark-target:disabled {
+  cursor: default;
+}
+
+.ark-target--selected {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ark-accent) 55%, transparent);
+}
+
+.ark-target-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* The impact overlay is invisible until --ark-impact-delay (the arrow's flight time) elapses,
+   so the hit pose and effect appear exactly when the projectile lands. */
+
+.ark-target-impact {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  animation: ark-impact-show 1ms linear forwards;
+  animation-delay: var(--ark-impact-delay, 380ms);
+}
+
+@keyframes ark-impact-show {
+  to {
+    opacity: 1;
+  }
+}
+
+.ark-target-hit,
+.ark-target-effect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ark-target-projectile {
+  position: absolute;
+  left: 50%;
+  top: 47%;
+  width: 74px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ark-target-score {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+  background: rgba(10, 10, 20, 0.88);
+  border: 2px solid var(--ark-accent);
+  color: var(--ark-accent);
+}
+
+/* Attack choreography: the arrow flies from the bow point (inline left/top + --ark-dx/-dy/-ang)
+   to the chosen target. FX are purely visual — the machine advanced the moment the answer was
+   stored, and a single always-resolving timer (plus skip paths) hands control back. */
+
+.ark-arrow {
+  position: absolute;
+  width: 120px;
+  height: 34px;
+  margin: -17px 0 0 -60px;
+  pointer-events: none;
+  z-index: 4;
+  animation: ark-arrow-flight var(--ark-impact-delay, 380ms) cubic-bezier(0.25, 0.6, 0.4, 1) forwards;
+}
+
+.ark-arrow-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+@keyframes ark-arrow-flight {
+  from {
+    transform: translate(0, 0) rotate(var(--ark-ang, 0deg));
+  }
+  to {
+    transform: translate(var(--ark-dx, 0px), var(--ark-dy, 0px)) rotate(var(--ark-ang, 0deg));
+  }
+}
+
+.ark-knight {
+  pointer-events: none;
+}
+
+.ark-knight-scene {
+  position: absolute;
+  left: 300px;
+  top: 430px;
+  width: 300px;
+  height: 260px;
+  z-index: 1;
+}
+
+.ark-knight-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* During playback any click on the board skips to the end (the bottom nav stays clickable). */
+
+.ark-attack-skip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 110px;
+  z-index: 6;
+  cursor: pointer;
+}
+
+.ark-question-status {
+  position: absolute;
+  left: 50%;
+  bottom: 104px;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 15px;
+  opacity: 0.85;
+  z-index: 2;
 }
 
 .ark-progress {
@@ -341,7 +571,7 @@
   justify-content: center;
   gap: 14px;
   font-size: 15px;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .ark-progress-chip {
@@ -354,98 +584,16 @@
   text-transform: uppercase;
 }
 
-.ark-question-head h2 {
-  font-size: 30px;
-  line-height: 1.25;
-  max-width: 1040px;
-  margin: 0 auto;
-}
-
-.ark-options {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 18px;
-  flex: 1;
-  align-items: stretch;
-  min-height: 0;
-}
-
-.ark-option {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 18px 14px;
-  border-radius: 14px;
-  border: 2px solid var(--ark-line);
-  background: rgba(20, 21, 36, 0.85);
-  color: var(--ark-ink);
-  font: inherit;
-  font-size: 15px;
-  line-height: 1.35;
-  cursor: pointer;
-  text-align: center;
-  transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease;
-}
-
-.ark-option:hover:not(:disabled),
-.ark-option:focus-visible {
-  border-color: var(--ark-accent);
-  background: rgba(32, 34, 58, 0.95);
-  transform: translateY(-3px);
-}
-
-.ark-option:focus-visible {
-  outline: 3px solid var(--ark-accent);
-  outline-offset: 2px;
-}
-
-.ark-option:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.ark-option--selected {
-  border-color: var(--ark-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ark-accent) 45%, transparent);
-  background: rgba(40, 40, 66, 0.95);
-}
-
-.ark-option-score {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 700;
-  border: 2px solid var(--ark-accent);
-  color: var(--ark-accent);
-  flex-shrink: 0;
-}
-
-.ark-option-text {
-  flex: 1;
-}
-
-.ark-question-status {
-  position: absolute;
-  left: 50%;
-  bottom: 96px;
-  transform: translateX(-50%);
-  margin: 0;
-  font-size: 15px;
-  opacity: 0.8;
-}
-
 .ark-question-nav {
+  position: absolute;
+  left: 70px;
+  right: 70px;
+  bottom: 22px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  z-index: 7;
 }
 
 /* ---- section end ---- */

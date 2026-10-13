@@ -14,7 +14,7 @@ Last updated: 2026-10-13
 | M1 | Foundations | **complete** | DB ✓ · dev server ✓ · `/admin` 200 ✓ · first admin user created via UI ✓ · plan below |
 | M2 | Backend model | **complete** | `modes` + `submissions` collections, explicit access control, idempotent seed of `default`; verified via /admin UI, REST API and psql (see log below) |
 | M3 | Game shell | **complete** | `/[mode]` routing + fallback resolver, title/intake/question/section-end/results scenes on a scaled 1280×720 stage, pure scene machine, server-run resume; verified in a real browser (see log below) |
-| M4 | Archery section | pending | reference implementation |
+| M4 | Archery section | **complete** | question screen is fully art-driven (targets/bubble/attack choreography); verified live end to end in a real browser + e2e (see log below) |
 | M5 | Boxing + swordsmanship | pending | |
 | M6 | Scoring + results | pending | |
 | M7 | QWEN report | pending | |
@@ -113,6 +113,56 @@ metadata now AI-Ready Knight.
   covered by the Playwright e2e (`page.keyboard.press('Enter')`) which still awaits the chromium
   download. The e2e spec was rewritten for the game shell (redirect, intake → first question with
   keyboard answer + advance, /nonsense 404, portrait rotate-to-play).
+
+## M4 verification log (2026-10-13)
+
+Files added: `src/game/components/Knight.tsx` (pose slots + fallback), `Target.tsx` (real button,
+accessible name = option text, idle/hover/hit poses, delayed impact overlay slot, stuck-projectile
+slot), `SpeechBubble.tsx` (aria-hidden bubble + tail at `tailPercent`), `ProgressNav.tsx`
+(`← Previous` · chip + "Question n of N · Section a of b" · next with section-aware label);
+`docs/adr/0003-animation-technique.md`. Rewritten: `src/game/scenes/Question.tsx` (the M4 reference
+implementation — stage-geometry constants, unified pointer/focus hover state keyed by questionId,
+CSS-choreographed attack), `src/game/GameShell.tsx` (fixed-beat auto-advance → `actionFor` +
+`onActionComplete`; QuestionScene keyed by question id so hover state resets per question), the
+question block of `game.css` (M3 option-grid styles deleted).
+
+- **Choreography** (ADR 0003): flight 380ms + impact hold 320ms = 700ms; arrow travels via CSS
+  keyframes driven by inline `--ark-dx/-dy/-ang`; the target's impact overlay (hit pose + effect)
+  uses `animation-delay: var(--ark-impact-delay)` set on the scene root, so the projectile lands and
+  the target changes on the same beat. Completion is one always-resolving timer + any-key listener
+  + full-board skip layer, ref-guarded to fire exactly once; reduced motion renders no arrow/skip
+  layer and finishes synchronously. Game state (the answer) was already recorded before playback.
+- **Live browser playthrough** (all 5 archery questions, default mode, placeholder art):
+  - hover → speech bubble replaces the question band, tail points at the hovered target, hover pose
+    + glow on the target, score badges 0→4 read left→right;
+  - keyboard: focus starts on the heading, first ArrowRight lands on target 1, arrows wrap, focus
+    beats a resting pointer for the bubble (newest interaction wins);
+  - click → answer POST → attack (verified mid-flight via in-page probe: knight pose `attack`,
+    arrow transform at ~61% of flight along the exact target angle, bubble locked to the chosen
+    text, skip layer present; impact overlay opacity 0 until flight end);
+  - skip: clicking the board during playback advances in **22ms** (vs 700ms full playback), same
+    end state, answer unaffected;
+  - back/replay: Previous → q2 shows `aria-pressed` on the stored option, hit pose + selection ring
+    + stuck projectile placeholder, Next enabled;
+  - refresh mid-run → resumes on the q3 frontier; after q5, refresh → frontier is section 2 q1
+    (interstitial section-end scenes are not replayed — machine semantics from M3);
+  - `GET /api/submissions/runs/:runId` after the run: 5 answers, server-derived scores
+    (1/3/2/0/4), narrow projection only (no company name) — §6 intact.
+- **Bugs found and fixed during verification**:
+  1. Stuck projectile vanished on revisit when the mode has no projectile URL — the raw URL was
+     checked before the placeholder fallback; now it goes through `assetOr` like the flying arrow.
+  2. Arrow keys did nothing when focus sat outside the scene (e.g. after a stray click) — added a
+     window-level fallback that hands focus to the row, deferring to the section handler.
+  3. Pointer-over-focus precedence: a resting mouse cursor kept the bubble on its target while the
+     keyboard moved focus elsewhere — `onFocus` now clears the pointer state.
+- `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` 22 passed ✓ · `pnpm test:e2e`
+  **8 passed** (incl. new reduced-motion test; spec updated for the nav order per §3.2) ✓.
+- **Known**: the bundled Playwright chromium (rev 1208) still hasn't downloaded on this machine
+  (CDN crawl, retried twice in the background). `playwright.config.ts` now takes
+  `PW_CHANNEL=chrome|msedge` to run on a system browser; e2e above ran with `PW_CHANNEL=chrome`.
+  Default stays `chromium` — on a machine with the bundle (or once the download lands) it works
+  unchanged. The browser-use synthetic-Enter quirk from M3 still applies (mouse path verified
+  live; real keyboard Enter is covered by the Playwright e2e).
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 

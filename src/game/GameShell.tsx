@@ -6,7 +6,7 @@ import { Stage } from './components/Stage'
 import { canGoBack, initialState, reduce, type GameState, type GameEvent } from './machine'
 import { clearRunId, createRun, fetchRun, readRunId, saveRunId, submitAnswer } from './run-client'
 import { IntakeScene, type IntakeFields } from './scenes/Intake'
-import { QuestionScene } from './scenes/Question'
+import { QuestionScene, type QuestionAction } from './scenes/Question'
 import { ResultsScene } from './scenes/Results'
 import { SectionEndScene } from './scenes/SectionEnd'
 import { TitleScene } from './scenes/Title'
@@ -39,9 +39,6 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-/** The pause between a recorded answer and the automatic advance in M3 (M4 replaces it with the attack animation). */
-const ADVANCE_BEAT_MS = 700
-
 export function GameShell({ mode }: { mode: ResolvedMode }) {
   const sections = useMemo(
     () => mode.sections.map((section) => ({ key: section.key, questionIds: section.questions.map((q) => q.id) })),
@@ -58,7 +55,7 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
   const [run, setRun] = useState<RunMeta | null>(null)
   const [pendingAnswer, setPendingAnswer] = useState(false)
   const [answerError, setAnswerError] = useState<string | null>(null)
-  const [autoAdvanceId, setAutoAdvanceId] = useState<string | null>(null)
+  const [actionFor, setActionFor] = useState<QuestionAction | null>(null)
   const reducedMotion = usePrefersReducedMotion()
 
   // Resume: re-attach to the run this session last wrote for this mode (ADR 0002).
@@ -122,7 +119,7 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
           score: option.score,
         }
         dispatch({ type: 'ANSWER', answer })
-        setAutoAdvanceId(question.id)
+        setActionFor({ questionId: question.id, optionIndex })
       } catch (cause) {
         setAnswerError(cause instanceof Error ? cause.message : 'Could not record your answer.')
       } finally {
@@ -132,22 +129,13 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
     [run, pendingAnswer, state.scene, mode.sections],
   )
 
-  // The beat between a recorded answer and the advance — a visual consequence, never game state:
-  // Continue during the beat lands in the same scene (skip path), reduced motion advances at once.
-  // A stale id (scene moved on via Continue) simply never schedules — the guard below returns.
-  useEffect(() => {
-    if (!autoAdvanceId || state.scene.name !== 'question') return
-    const currentId = sections[state.scene.sectionIndex]?.questionIds[state.scene.questionIndex]
-    if (currentId !== autoAdvanceId) return
-    const timer = setTimeout(
-      () => {
-        setAutoAdvanceId(null)
-        dispatch({ type: 'ADVANCE' })
-      },
-      reducedMotion ? 0 : ADVANCE_BEAT_MS,
-    )
-    return () => clearTimeout(timer)
-  }, [autoAdvanceId, state.scene, sections, reducedMotion])
+  // The attack choreography lives in the question scene and reports back exactly once — when the
+  // animation finishes, when the player skips it, or immediately under reduced motion. Game state
+  // advanced as soon as the answer was stored; this callback only moves the machine on.
+  const handleActionComplete = useCallback(() => {
+    setActionFor(null)
+    dispatch({ type: 'ADVANCE' })
+  }, [])
 
   // Focus follows the scene: keyboard players land on the new screen's heading.
   const sceneRef = useRef<HTMLDivElement>(null)
@@ -161,13 +149,13 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
   }, [sceneKey, phase.name])
 
   const advance = useCallback(() => {
-    setAutoAdvanceId(null)
+    setActionFor(null)
     setAnswerError(null)
     dispatch({ type: 'ADVANCE' })
   }, [])
 
   const goBack = useCallback(() => {
-    setAutoAdvanceId(null)
+    setActionFor(null)
     setAnswerError(null)
     dispatch({ type: 'BACK' })
   }, [])
@@ -184,12 +172,16 @@ export function GameShell({ mode }: { mode: ResolvedMode }) {
         const question = section?.questions[scene.questionIndex]
         return (
           <QuestionScene
+            key={question?.id ?? `question:${scene.sectionIndex}:${scene.questionIndex}`}
             mode={mode}
             sectionIndex={scene.sectionIndex}
             questionIndex={scene.questionIndex}
             answered={question ? state.answers[question.id] : undefined}
             pending={pendingAnswer}
+            action={actionFor && question?.id === actionFor.questionId ? actionFor : null}
+            reducedMotion={reducedMotion}
             onAnswer={handleAnswer}
+            onActionComplete={handleActionComplete}
             onBack={goBack}
             onAdvance={advance}
             canGoBack={canGoBack(state)}

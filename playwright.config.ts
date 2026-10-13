@@ -30,7 +30,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+      // Defaults to Playwright's bundled chromium. Set PW_CHANNEL=chrome (or msedge) to run on a
+      // system browser when the bundled download is unavailable (see PROGRESS.md).
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: (process.env.PW_CHANNEL ?? 'chromium') as 'chromium' | 'chrome' | 'msedge',
+      },
     },
   ],
   webServer: {

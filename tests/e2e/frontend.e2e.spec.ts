@@ -20,7 +20,7 @@ test.describe('Frontend — game shell', () => {
     await page.getByRole('button', { name: 'Enter the training grounds' }).click()
 
     await expect(page.getByRole('heading', { level: 2 })).toContainText('Q1. Is AI a strategic priority')
-    await expect(page.getByText('Section 1 of 3 · Question 1 of 5')).toBeVisible()
+    await expect(page.getByText('Question 1 of 5 · Section 1 of 3')).toBeVisible()
 
     const options = page.getByRole('group', { name: 'Answer options' }).getByRole('button')
     await expect(options).toHaveCount(5)
@@ -35,8 +35,24 @@ test.describe('Frontend — game shell', () => {
     // The answer lands server-side (button lock + selected state)...
     await expect(secondOption).toHaveAttribute('aria-pressed', 'true')
 
-    // ...and after the beat the machine advances to question 2 without a reload.
-    await expect(page.getByText('Section 1 of 3 · Question 2 of 5')).toBeVisible()
+    // ...and after the attack beat the machine advances to question 2 without a reload.
+    await expect(page.getByText('Question 2 of 5 · Section 1 of 3')).toBeVisible()
+  })
+
+  test('reduced motion: the section stays playable without the attack beat', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('http://localhost:3000/default')
+
+    await page.getByRole('button', { name: 'Begin training' }).click()
+    await page.getByLabel('Knight name').fill('Sir Reduced')
+    await page.getByLabel('Company').fill('Motion Sickness Ltd')
+    await page.getByRole('button', { name: 'Enter the training grounds' }).click()
+
+    await expect(page.getByRole('heading', { level: 2 })).toContainText('Q1.')
+    await page.getByRole('button', { name: 'AI is not on our agenda yet' }).click()
+
+    // The attack choreography is skipped entirely; the machine advances on the recorded answer.
+    await expect(page.getByText('Question 2 of 5 · Section 1 of 3')).toBeVisible()
   })
 
   test('an unknown mode is a 404', async ({ page }) => {
