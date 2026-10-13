@@ -95,18 +95,25 @@ both ends:
 
 - `vibe_images/` — raw generated images (the source of record).
 - `art/` — processed, transparent, @2x sprites placed on canonical canvases
-  (`art/default/<section>/…`, `art/electric/…` for the sample re-skin).
+  (`art/default/<section>/…` and `art/electric/<section>/…` — both sets are complete).
 - `docs/art-prompts.md` — **every prompt actually used**, keyed by slot, plus the pipeline
   conventions (white-key, trimming, anchors, canvas sizes). Read this before regenerating anything.
 
 Processing scripts live in `scripts/art/` (run with plain `node`, they use `sharp`):
-`process-set.mjs` (full default set), `process-electric.mjs` (electric partial set). After
-processing, upload + wire the default set into the CMS with:
+`process-set.mjs <set>` handles both sets (`node scripts/art/process-set.mjs electric`; no argument
+= `default`), and `compare-sets.mjs <section>` renders the set-vs-set side-by-side review sheet the
+re-skin sample gate uses (`docs/art-sample/compare-electric-<section>.png`). After processing,
+upload + wire a set into the CMS with:
 
 ```bash
-pnpm art:wire            # find-or-create each media doc, point default mode slots at them
+pnpm art:wire            # wire the default set: find-or-create each media doc, point default's slots at them
+pnpm art:wire electric   # wire another mode: art/<slug>/** → the mode with that slug (media names get the <slug>- prefix)
 pnpm art:wire --replace  # re-upload files that changed on disk
 ```
+
+Verification: `node scripts/art/verify-electric.mjs` plays `/electric` end to end asserting zero
+`default` URLs and zero placeholders; `pnpm art:verify-fallback` re-proves the per-slot fallback
+on a throwaway scratch mode (see [`docs/modes.md`](docs/modes.md)).
 
 ## The QWEN report
 

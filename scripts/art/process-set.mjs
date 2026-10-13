@@ -1,5 +1,7 @@
-// M8 full-set pass — turn every raw generation in vibe_images/ into game-ready @2x sprites in
-// art/default/** (the committed source-of-record for the default mode's assets).
+// Set processor — turn every raw generation in vibe_images/ into game-ready @2x sprites in
+// art/<set>/** (the committed source-of-record for that mode's assets). M8 built the `default`
+// set; M11 extended the same pipeline to the `electric` re-skin (raws resolved by filename stem,
+// because a regenerated sheet gets a fresh timestamp suffix).
 //
 // Pipeline (docs/art-prompts.md): key the flat backdrop with a border-connected flood fill using
 // per-file adaptive channel limits (the raws' backdrops sit between 239 and 255, so a fixed 245
@@ -17,16 +19,27 @@
 //
 // Also renders 4 review images into docs/art-sample/ (game-geometry frames + pose/state strips).
 //
-// Run from the repo root:  node scripts/art/process-set.mjs
+// Run from the repo root:
+//   node scripts/art/process-set.mjs             (default set — every raw must exist)
+//   node scripts/art/process-set.mjs electric    (electric set — a raw not generated yet is
+//                                                 skipped with a warning; `pnpm art:wire` is the
+//                                                 completeness gate, not this script)
 
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 
 const ROOT = process.cwd()
 const RAW = path.join(ROOT, 'vibe_images')
-const OUT = path.join(ROOT, 'art', 'default')
 const REVIEW = path.join(ROOT, 'docs', 'art-sample')
+
+const SET = process.argv[2] ?? 'default'
+if (!['default', 'electric'].includes(SET)) {
+  console.error(`unknown set "${SET}" — usage: node scripts/art/process-set.mjs [default|electric]`)
+  process.exit(1)
+}
+const OUT = path.join(ROOT, 'art', SET)
 
 const KNIGHT = { w: 600, h: 520, margin: 2 }
 const TARGET = { w: 400, h: 400, margin: 4 }
@@ -45,7 +58,7 @@ const WARM_TINT = 4
 
 // ---- inputs -----------------------------------------------------------------------------------
 
-const BACKGROUNDS = [
+let BACKGROUNDS = [
   { dir: 'title', file: 'background-title-golden_1791876808248_984e5c23.png' },
   { dir: 'results', file: 'background-results-evening_1791876818810_3e7b7943.png' },
   { dir: 'archery', file: 'background-sample_1791875999081_445ec048.png' },
@@ -53,7 +66,7 @@ const BACKGROUNDS = [
   { dir: 'swordsmanship', file: 'background-sword-v2_1791877946320_66dfa187.png' },
 ]
 
-const KNIGHT_SHEETS = [
+let KNIGHT_SHEETS = [
   { section: 'archery', file: 'knight-sheet-sample_1791875982453_3fc7f3a1.png', poses: ['idle', 'attack'] },
   { section: 'archery', file: 'knight-archery-celebrate-fail_1791876638058_097092da.png', poses: ['celebrate', 'fail'] },
   { section: 'boxing', file: 'knight-boxing-idle-attack_1791876647317_6b12764f.png', poses: ['idle', 'attack'] },
@@ -62,7 +75,7 @@ const KNIGHT_SHEETS = [
   { section: 'swordsmanship', file: 'knight-sword-celebrate-fail_1791876702039_08dde64a.png', poses: ['celebrate', 'fail'] },
 ]
 
-const TARGETS = [
+let TARGETS = [
   { section: 'archery', parts: [
     { state: 'idle', file: 'target-idle-sample_1791875990527_7c37dd3d.png' },
     { state: 'hit', file: 'target-archery-hit-v2_1791877196318_3358003e.png' },
@@ -71,15 +84,15 @@ const TARGETS = [
   { section: 'swordsmanship', sheet: 'target-sword-dummy-idle-hit_1791876756204_9c5b5805.png', states: ['idle', 'hit'] },
 ]
 
-const ARROW_RAW = 'arrow-sample_1791876008288_1f8a598c.png'
+let ARROW_RAW = 'arrow-sample_1791876008288_1f8a598c.png'
 
-const EFFECTS = [
+let EFFECTS = [
   { section: 'archery', file: 'hiteffect-archery_1791876902512_86da61a3.png' },
   { section: 'boxing', file: 'hiteffect-boxing_1791876912203_ed6e3846.png' },
   { section: 'swordsmanship', file: 'hiteffect-sword_1791876928637_2b6f5ef0.png' },
 ]
 
-const BEATS = [
+let BEATS = [
   { section: 'archery', band: '3-4', file: 'beat-archery-high-v2_1791877213389_142595f1.png' },
   { section: 'archery', band: '1-2.9', file: 'beat-archery-mid-v2_1791877227286_b2d06b3f.png' },
   { section: 'archery', band: '0-0.9', file: 'beat-archery-low-v2_1791877237275_482b7bea.png' },
@@ -91,13 +104,73 @@ const BEATS = [
   { section: 'swordsmanship', band: '0-0.9', file: 'beat-sword-low_1791877058806_fd84f59d.png' },
 ]
 
-const FINALS = [
+let FINALS = [
   { slot: 'low_average', file: 'finalknight-low-average_1791876833012_e8995fc1.png' },
   { slot: 'average', file: 'finalknight-average_1791876849622_45614e32.png' },
   { slot: 'high_average', file: 'finalknight-high-average_1791876871718_4296898c.png' },
 ]
 
-const LOGO_RAW = 'logo-wordmark_1791876889759_80dbc7cf.png'
+let LOGO_RAW = 'logo-wordmark_1791876889759_80dbc7cf.png'
+
+// ---- electric re-skin (M11) --------------------------------------------------------------------
+// Same compositions as the default set. Raws are looked up by filename stem (`<stem>_<ts>.png`)
+// and the newest match wins, so a regenerated sheet is picked up without editing this table.
+// A stem with no raw on disk yet resolves to null and the loops below skip it with a warning.
+
+const rawByStem = (stem) => {
+  const matches = readdirSync(RAW)
+    .filter((f) => f.startsWith(`${stem}_`) && f.endsWith('.png'))
+    .map((f) => ({ f, mtime: statSync(path.join(RAW, f)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime)
+  return matches.length > 0 ? matches[0].f : null
+}
+
+if (SET === 'electric') {
+  const raw = rawByStem
+  BACKGROUNDS = [
+    { dir: 'archery', file: raw('background-electric-archery-v2') },
+    { dir: 'boxing', file: raw('background-electric-boxing') },
+    { dir: 'swordsmanship', file: raw('background-electric-sword') },
+    { dir: 'title', file: raw('background-electric-title') },
+    { dir: 'results', file: raw('background-electric-results') },
+  ]
+  KNIGHT_SHEETS = [
+    { section: 'archery', file: raw('knight-electric-archery-idle-attack'), poses: ['idle', 'attack'] },
+    { section: 'archery', file: raw('knight-electric-archery-celebrate-fail'), poses: ['celebrate', 'fail'] },
+    { section: 'boxing', file: raw('knight-electric-boxing-idle-attack'), poses: ['idle', 'attack'] },
+    { section: 'boxing', file: raw('knight-electric-boxing-celebrate-fail'), poses: ['celebrate', 'fail'] },
+    { section: 'swordsmanship', file: raw('knight-electric-sword-idle-attack'), poses: ['idle', 'attack'] },
+    { section: 'swordsmanship', file: raw('knight-electric-sword-celebrate-fail'), poses: ['celebrate', 'fail'] },
+  ]
+  TARGETS = [
+    { section: 'archery', sheet: raw('target-electric-idle-hit'), states: ['idle', 'hit'] },
+    { section: 'boxing', sheet: raw('target-electric-boxing-bag-idle-hit'), states: ['idle', 'hit'] },
+    { section: 'swordsmanship', sheet: raw('target-electric-sword-dummy-idle-hit'), states: ['idle', 'hit'] },
+  ]
+  ARROW_RAW = raw('arrow-electric')
+  EFFECTS = [
+    { section: 'archery', file: raw('hiteffect-electric') },
+    { section: 'boxing', file: raw('hiteffect-electric-boxing') },
+    { section: 'swordsmanship', file: raw('hiteffect-electric-sword') },
+  ]
+  BEATS = [
+    { section: 'archery', band: '3-4', file: raw('beat-electric-archery-high') },
+    { section: 'archery', band: '1-2.9', file: raw('beat-electric-archery-mid') },
+    { section: 'archery', band: '0-0.9', file: raw('beat-electric-archery-low') },
+    { section: 'boxing', band: '3-4', file: raw('beat-electric-boxing-high') },
+    { section: 'boxing', band: '1-2.9', file: raw('beat-electric-boxing-mid') },
+    { section: 'boxing', band: '0-0.9', file: raw('beat-electric-boxing-low') },
+    { section: 'swordsmanship', band: '3-4', file: raw('beat-electric-sword-high') },
+    { section: 'swordsmanship', band: '1-2.9', file: raw('beat-electric-sword-mid') },
+    { section: 'swordsmanship', band: '0-0.9', file: raw('beat-electric-sword-low') },
+  ]
+  FINALS = [
+    { slot: 'low_average', file: raw('finalknight-electric-low-average') },
+    { slot: 'average', file: raw('finalknight-electric-average') },
+    { slot: 'high_average', file: raw('finalknight-electric-high-average') },
+  ]
+  LOGO_RAW = raw('logo-electric-wordmark')
+}
 
 // ---- pixel pipeline (same core as the approved sample pass) -----------------------------------
 
@@ -302,6 +375,10 @@ async function fitOnCanvas(sprite, canvasW, canvasH, outFile, { margin = 0, bott
 
 const log = (...args) => console.log(...args)
 
+// Review outputs: the default set keeps the M8 filenames; every other set prefixes its own name
+// so docs/art-sample/ stays unambiguous.
+const review = (name) => path.join(REVIEW, SET === 'default' ? `review-${name}.png` : `review-${SET}-${name}.png`)
+
 // ---- review sheets ----------------------------------------------------------------------------
 
 const label = (text, width = 400) =>
@@ -331,7 +408,7 @@ async function renderSectionFrame(section) {
   if (section === 'archery') {
     composites.push({ input: await sharp(path.join(OUT, section, 'projectile@2x.png')).resize(120, 34).png().toBuffer(), left: 560, top: 300 })
   }
-  await base.composite(composites).png().toFile(path.join(REVIEW, `review-${section}.png`))
+  await base.composite(composites).png().toFile(review(section))
   log(`review-${section}.png (game geometry)`)
 }
 
@@ -368,7 +445,7 @@ async function renderSectionStrip(section) {
     })
   }
   composites.push({ input: label('beats 3-4 — 1-2.9 — 0-0.9 (360×170 slot)', 700), left: 40, top: 708 })
-  await base.composite(composites).png().toFile(path.join(REVIEW, `review-${section}-poses.png`))
+  await base.composite(composites).png().toFile(review(`${section}-poses`))
   log(`review-${section}-poses.png (poses/states at game scale)`)
 }
 
@@ -402,7 +479,7 @@ async function renderTitleResults() {
     })
   }
   composites.push({ input: label('backgrounds: title — archery — boxing — swordsmanship — results (2560×1440 each)', 900), left: 40, top: 660 })
-  await base.composite(composites).png().toFile(path.join(REVIEW, 'review-title-results.png'))
+  await base.composite(composites).png().toFile(review('title-results'))
   log('review-title-results.png')
 }
 
@@ -417,6 +494,10 @@ async function main() {
   // --- knight sheets: key all 12 poses first, then one global body scale for the whole set.
   const keyedPoses = []
   for (const sheet of KNIGHT_SHEETS) {
+    if (!sheet.file) {
+      log(`  skip knight ${sheet.section} [${sheet.poses.join(', ')}] — raw not generated yet`)
+      continue
+    }
     const image = await loadRgba(path.join(RAW, sheet.file))
     const half = Math.floor(image.width / 2)
     for (const [index, pose] of sheet.poses.entries()) {
@@ -432,8 +513,14 @@ async function main() {
     (KNIGHT.h - KNIGHT.margin) / sprite.height,
     (KNIGHT.w - 2) / sprite.width,
   ) * rawHeight)
-  const K = Math.floor(Math.min(...fits))
-  log(`global knight constant K=${K} (limits per pose: ${keyedPoses.filter((p) => p.pose === 'idle').map((p) => p.sprite.limits.join('/')).join('  ')})`)
+  // One global constant per set: the largest raw body height that fits every pose (M8 rule).
+  // The electric set is capped at the default set's 545 so a re-skin can never render the knight
+  // bigger than the originals (M11: same global knight scale — the sets swap with no layout change).
+  const K = SET === 'electric' ? Math.min(545, Math.floor(Math.min(...fits))) : Math.floor(Math.min(...fits))
+  log(`global knight constant K=${K}${SET === 'electric' ? ' (capped at the default set\u2019s 545)' : ''} (limits per pose: ${keyedPoses.filter((p) => p.pose === 'idle').map((p) => p.sprite.limits.join('/')).join('  ')})`)
+  if (SET === 'electric' && Math.abs(K - 545) > 0.02 * 545) {
+    log(`  !! electric K=${K} drifts more than 2% from the default set's 545 — check the sheet framing`)
+  }
   for (const pose of keyedPoses) {
     const scale = K / pose.rawHeight
     const placed = await placeScaled(
@@ -445,16 +532,27 @@ async function main() {
       { bottomMargin: KNIGHT.margin },
     )
     log(`  ${pose.section}/knight.${pose.pose}@2x.png  bbox ${pose.sprite.width}×${pose.sprite.height} → ${placed.w}×${placed.h} (scale ${scale.toFixed(3)})`)
+    if (placed.w > KNIGHT.w || placed.h > KNIGHT.h) {
+      log(`  !! ${pose.section}/knight.${pose.pose} overflows the ${KNIGHT.w}×${KNIGHT.h} canvas at K=${K}`)
+    }
   }
 
   // --- targets: idle and hit share the pair's min fit (no pop between states).
   for (const target of TARGETS) {
     const halves = []
     if (target.parts) {
+      if (target.parts.some((p) => !p.file)) {
+        log(`  skip targets ${target.section} — raw not generated yet`)
+        continue
+      }
       for (const part of target.parts) {
         halves.push({ state: part.state, sprite: await spriteOf(await loadRgba(path.join(RAW, part.file))) })
       }
     } else {
+      if (!target.sheet) {
+        log(`  skip targets ${target.section} — raw not generated yet`)
+        continue
+      }
       const image = await loadRgba(path.join(RAW, target.sheet))
       const width = Math.floor(image.width / 2)
       for (const [index, state] of target.states.entries()) {
@@ -477,12 +575,20 @@ async function main() {
   }
 
   // --- arrow: warm-smear removes the cream speed-smoke; centred on the 240×68 canvas.
-  const arrow = await spriteOf(await loadRgba(path.join(RAW, ARROW_RAW)), { warmSmear: true })
-  const arrowPlaced = await fitOnCanvas(arrow, ARROW.w, ARROW.h, path.join(OUT, 'archery', 'projectile@2x.png'), { margin: 0 })
-  log(`  archery/projectile@2x.png  bbox ${arrow.width}×${arrow.height} → ${arrowPlaced.w}×${arrowPlaced.h}`)
+  if (!ARROW_RAW) {
+    log('  skip archery/projectile — raw not generated yet')
+  } else {
+    const arrow = await spriteOf(await loadRgba(path.join(RAW, ARROW_RAW)), { warmSmear: true })
+    const arrowPlaced = await fitOnCanvas(arrow, ARROW.w, ARROW.h, path.join(OUT, 'archery', 'projectile@2x.png'), { margin: 0 })
+    log(`  archery/projectile@2x.png  bbox ${arrow.width}×${arrow.height} → ${arrowPlaced.w}×${arrowPlaced.h}`)
+  }
 
   // --- hit effects: centred on 400×400 (bursts sit on the impact point at 50%/47% of the box).
   for (const effect of EFFECTS) {
+    if (!effect.file) {
+      log(`  skip hitEffect ${effect.section} — raw not generated yet`)
+      continue
+    }
     const sprite = await spriteOf(await loadRgba(path.join(RAW, effect.file)))
     const placed = await fitOnCanvas(sprite, EFFECT.w, EFFECT.h, path.join(OUT, effect.section, 'hitEffect@2x.png'), { margin: EFFECT.margin })
     log(`  ${effect.section}/hitEffect@2x.png  bbox ${sprite.width}×${sprite.height} → ${placed.w}×${placed.h}`)
@@ -490,6 +596,10 @@ async function main() {
 
   // --- section-end beats: fit the prop strip into the 720×340 (360×170 slot) canvas.
   for (const beat of BEATS) {
+    if (!beat.file) {
+      log(`  skip beat ${beat.section} ${beat.band} — raw not generated yet`)
+      continue
+    }
     const sprite = await spriteOf(await loadRgba(path.join(RAW, beat.file)), { holes: true })
     const placed = await fitOnCanvas(sprite, BEAT.w, BEAT.h, path.join(OUT, beat.section, `animation.${beat.band}@2x.png`), { margin: BEAT.margin })
     log(`  ${beat.section}/animation.${beat.band}@2x.png  bbox ${sprite.width}×${sprite.height} → ${placed.w}×${placed.h}${sprite.cleared.length ? `  (pockets: ${sprite.cleared.join(', ')})` : ''}`)
@@ -497,6 +607,10 @@ async function main() {
 
   // --- final knights: fit each variant to the 264×264 canvas (only one ever shows per run).
   for (const final of FINALS) {
+    if (!final.file) {
+      log(`  skip results/finalKnight.${final.slot} — raw not generated yet`)
+      continue
+    }
     const sprite = await spriteOf(await loadRgba(path.join(RAW, final.file)), { holes: true })
     const placed = await fitOnCanvas(sprite, FINAL.w, FINAL.h, path.join(OUT, 'results', `finalKnight.${final.slot}@2x.png`), {
       margin: FINAL.margin,
@@ -506,22 +620,44 @@ async function main() {
   }
 
   // --- logo: enclosed letter counters punched out; fitted on the 680×240 canvas.
-  const logo = await spriteOf(await loadRgba(path.join(RAW, LOGO_RAW)), { holes: true })
-  const logoPlaced = await fitOnCanvas(logo, LOGO.w, LOGO.h, path.join(OUT, 'title', 'logo@2x.png'), { margin: LOGO.margin })
-  log(`  title/logo@2x.png  bbox ${logo.width}×${logo.height} → ${logoPlaced.w}×${logoPlaced.h}${logo.cleared.length ? `  (pockets: ${logo.cleared.join(', ')})` : ''}`)
+  if (!LOGO_RAW) {
+    log('  skip title/logo — raw not generated yet')
+  } else {
+    const logo = await spriteOf(await loadRgba(path.join(RAW, LOGO_RAW)), { holes: true })
+    const logoPlaced = await fitOnCanvas(logo, LOGO.w, LOGO.h, path.join(OUT, 'title', 'logo@2x.png'), { margin: LOGO.margin })
+    log(`  title/logo@2x.png  bbox ${logo.width}×${logo.height} → ${logoPlaced.w}×${logoPlaced.h}${logo.cleared.length ? `  (pockets: ${logo.cleared.join(', ')})` : ''}`)
+  }
 
   // --- backgrounds: 2560×1440 @2x of the 1280×720 stage.
   for (const background of BACKGROUNDS) {
+    if (!background.file) {
+      log(`  skip ${background.dir}/background — raw not generated yet`)
+      continue
+    }
     await sharp(path.join(RAW, background.file)).resize(2560, 1440, { fit: 'cover' }).png().toFile(path.join(OUT, background.dir, 'background@2x.png'))
     log(`  ${background.dir}/background@2x.png  2560×1440`)
   }
 
-  // --- review sheets.
+  // --- review sheets (a section renders only once its inputs exist — the electric set is
+  // generated in two passes, so the sample pass reviews just the sample section).
+  const has = (p) => existsSync(path.join(OUT, p))
+  const frameInputs = (section) =>
+    [`${section}/target.idle@2x.png`, `${section}/target.hit@2x.png`, `${section}/hitEffect@2x.png`, `${section}/knight.idle@2x.png`]
+      .concat(section === 'archery' ? [`${section}/projectile@2x.png`] : [])
+  const stripInputs = (section) =>
+    ['idle', 'attack', 'celebrate', 'fail'].map((p) => `${section}/knight.${p}@2x.png`)
+      .concat([`${section}/target.idle@2x.png`, `${section}/target.hit@2x.png`, `${section}/hitEffect@2x.png`],
+        ['3-4', '1-2.9', '0-0.9'].map((b) => `${section}/animation.${b}@2x.png`),
+        section === 'archery' ? [`${section}/projectile@2x.png`] : [])
   for (const section of ['archery', 'boxing', 'swordsmanship']) {
-    await renderSectionFrame(section)
-    await renderSectionStrip(section)
+    const bg = BACKGROUNDS.find((b) => b.dir === section)
+    if (!bg?.file) continue
+    if (frameInputs(section).every(has)) await renderSectionFrame(section)
+    if (stripInputs(section).every(has)) await renderSectionStrip(section)
   }
-  await renderTitleResults()
+  const titleResultsInputs = ['title', 'archery', 'boxing', 'swordsmanship', 'results'].map((d) => `${d}/background@2x.png`)
+    .concat(['title/logo@2x.png'], ['low_average', 'average', 'high_average'].map((s) => `results/finalKnight.${s}@2x.png`))
+  if (titleResultsInputs.every(has)) await renderTitleResults()
 
   log('done.')
 }

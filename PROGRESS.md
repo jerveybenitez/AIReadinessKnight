@@ -21,6 +21,7 @@ Last updated: 2026-10-13
 | M8 | Default art set | **complete** | full set generated, processed (`art/default/**`, 40 files), wired (`pnpm art:wire`, all 43 slots resolve), verified in-game — see the completion log below |
 | M9 | Re-skin proof (`electric`) | **complete** | `electric` shipped through the real `/admin` UI (duplicate → rename → partial upload → save), per-slot fallback proven by scripted playthroughs with one *and* three assets; operator guide is `docs/modes.md` (see log below) |
 | M10 | Hardening | **complete** | README rewritten for a new developer; docker-compose is postgres-only; favicon added (no more console 404); a11y pass (keyboard-only full playthrough e2e + recovery-screen focus); error-state e2e (answer failure, resume failure, unknown `/result` 404); all gates green — `pnpm test` 74 int + 15 e2e (see log below) |
+| M11 | Electric art set | **complete** | full set generated (sample gated first, as in M8), processed with `process-set.mjs electric` (`art/electric/**`, 40 files / 43 slots, knight cap K=540), wired via slug-aware `pnpm art:wire electric`; `/electric` verified end to end with **zero** `default` URLs and zero placeholders; questions byte-identical to `default`; per-slot fallback re-proven on a throwaway scratch mode; all gates green — lint/tsc 0, 74 int + 15 e2e (see log below) |
 
 ## M1 verification log (2026-10-13)
 
@@ -497,6 +498,66 @@ dev`, so no billed call): `pnpm lint` **0 errors** ✓ · `pnpm exec tsc --noEmi
 `pnpm test:int` **74 passed** (6 files) ✓ · `pnpm test:e2e` **15 passed** (12 frontend + 3 admin;
 11 pre-existing + 4 new) ✓ · `pnpm test` chain **exit 0** ✓ · manual open: title + Q1 rendered
 correctly in real Chrome (screenshots checked), `/admin` 200 ✓.
+
+
+## M11 completion log (2026-10-13)
+
+**Sample gate first, as in M8** — the knight plus the archery section were generated as an
+electronic/cyberpunk re-skin of the same compositions and reviewed against the `default` originals
+side by side (`docs/art-sample/compare-electric-archery.png`, `review-electric-archery[-poses].png`);
+user-approved, then the remaining ~37 raws were made in one consistent style pass. Per-section
+review sheets: `review-electric-boxing[-poses].png`, `review-electric-swordsmanship[-poses].png`,
+`review-electric-title-results.png`.
+
+**Full set** — raws in `vibe_images/` (superseded drafts kept; the regeneration history — archery
+background v2 no-people clause, sword-sheet midline drafts, grey-paper/drop-shadow regens, logo v1
+shadow — is in the art-prompts appendix). Processed with `node scripts/art/process-set.mjs
+electric`: same pipeline, render boxes and global-scale discipline as `default`; the knight
+constant is **capped at the default set's and lands at K=540**, so the two sets are swappable
+pixel-for-pixel. 40 files over 43 slots in `art/electric/**` (target idle/hit pair shares one fit
+factor, beats 720×340, finals bottom-anchored, backgrounds 2560×1440). The M9 partial pass's
+`process-electric.mjs` was retired (same precedent as `process-sample.mjs` in M8).
+
+**`art:wire` generalized** — `src/seed/wire-art.ts` now takes a mode slug: `pnpm art:wire [slug]`,
+default stays `default` so the old usage is unchanged. Non-default uploads are namespaced
+`<slug>-<dir>-<file>` (e.g. `electric-archery-knight.idle@2x.png`) so electric media can never
+collide with — or accidentally satisfy an assertion about — a default URL; alt text prefix
+`Default — ` → `Electric — `; `target.hover` reuses the idle upload as before. `pnpm art:wire
+electric` wired all 43 slots. The three M9-era hand-uploaded media docs (ids 44–46) were deleted as
+orphans — media is now **80 docs: 40 `default` + 40 `electric`**.
+
+**Verification inverted** — `scripts/art/verify-electric.mjs` used to assert that most slots *do*
+resolve to `default` URLs; it now proves the opposite. Full 15-question `/electric` playthrough
+(PLAN scores → bands 1-2.9 / 0-0.9 / 3-4): every slot in every scene asserts an **electric** URL,
+**zero** `default` URLs are reachable (all `<img>` srcs and CSS `background-image` URLs are
+normalized and checked against the 40-member default set — the `electric-` prefix makes the check
+collision-proof), zero placeholders, questions **byte-identical** to `default`, the dead-QWEN
+fallback report renders, accent `#4dd8ff` and the `Electric` kicker are live. All green;
+screenshots `docs/modes-proof/verify-m11-*.png`.
+
+**Fallback re-proof — choice: throwaway scratch mode.** M9's per-slot fallback evidence was *that
+electric was partial*; a complete electric retires it. We chose the **throwaway-scratch route over
+keeping one named slot deliberately empty**, so the shipped `electric` mode carries no permanent
+holes. `scripts/art/verify-fallback-scratch.ts` (`pnpm art:verify-fallback`): duplicate `default`
+via the local API (`disableDuplicate` keeps the art out), upload exactly **one** electric asset
+into the copy, play a full run asserting the mix (electric target at the archery questions, default
+everywhere else, the default target idle shadowed at Q1), then delete the scratch mode **and its
+submissions** — even if the run failed. All green; screenshots `verify-scratch-*.png`. The route is
+stated in `docs/modes.md` (Part 2) and here, per the M11 contract.
+
+**Docs** — `docs/modes.md` (scratch-route paragraph, `art:wire <slug>` step, media-naming gotcha,
+updated command list incl. the re-skin-proof warning), `README.md` (both sets complete;
+`process-set.mjs <set>`; `pnpm art:wire <slug>`; the two verification scripts), `docs/art-prompts.md`
+— the full **electric appendix**: both extra anchors (palette, knight), the regeneration history,
+and every final prompt verbatim keyed by slot; the M9 section was annotated where M11 superseded it
+(script retired; idle/hit re-placed by the reprocess).
+
+**Gates** (all against the **dead endpoint** server, `QWEN_BASE_URL=http://127.0.0.1:9/v1 pnpm
+dev`, so no billed call): `pnpm lint` **0** ✓ · `pnpm exec tsc --noEmit` **0** ✓ · `pnpm test:int`
+**74 passed** (6 files) ✓ · `pnpm test:e2e` **15 passed** with `PW_CHANNEL=chrome` ✓. Done-when
+re-checked: `/electric` plays end to end on electric art with zero `default` URLs and zero
+placeholders reachable, `/default` is unchanged (default e2e playthrough + byte-identity check),
+per-slot fallback is proven on the scratch mode, and questions were not touched.
 
 
 ## Plan (approved 2026-10-13; historical — see Decisions)

@@ -50,6 +50,9 @@ Verify these yourself before planning; do not assume.
 2. **No art assets exist yet.** `game_concept/` holds wireframes, not sprites. **You generate the
    default mode's sprites and animations yourself** (see §3.5). Until they exist, ship flat-colour
    labelled placeholders so no milestone is blocked on art.
+   *Status (2026-10-13): resolved for `default` in M8 — the full set lives in `art/default/**` and
+   is wired into the CMS. `electric` is still partial and is M11's job. Verify on disk; don't take
+   this paragraph's present tense literally.*
 3. **Scoring uses two different band sets** — section animations and the final pose do not share
    boundaries, and the final-pose ranges contain gaps. See §4; this is settled, follow it exactly.
 
@@ -156,6 +159,16 @@ can be regenerated or extended.
 they want to override; **every slot they leave empty falls back to the `default` mode's asset.** A
 mode with zero uploads is therefore still fully playable and looks exactly like `default`. This
 fallback is a backend concern — see §7 and the `game-modes-cms` skill.
+
+**Exception — `electric` is yours too.** M11 (§8) asks you to generate the *full* `electric` set
+in-house, as an **electronic / cyberpunk re-skin of the `default` set**: same compositions, same
+poses, same anchors, same framing — restyled. Neon on dark, circuitry and emissive accents, the
+barracks training yard becoming a tech/industrial training bay; the knight stays the same girl in
+the same silhouette, her leather training gear reading as techwear and her armour as powered plate.
+Match `default` slot for slot so the two sets are swappable without any layout change. This is a
+re-skin, not a redesign, and it changes nothing about the fallback mechanism above — it only means
+`electric` ends up with nothing left to fall back for. **Questions, options and scores are
+identical to `default` and must not be touched** (see M11).
 
 ### 3.6 Non-negotiable UX baseline
 
@@ -357,6 +370,35 @@ Playwright e2e for a full playthrough, Vitest for scoring and QWEN parsing, acce
 portrait "rotate to play" check, error states, README update.
 *Done when:* `pnpm test` passes and the README tells a new developer how to run and extend this.
 
+**M11 — Electric art set**
+Finish `electric`: generate every remaining asset slot as an **electronic / cyberpunk re-skin of
+the `default` set** per §3.5. M9 left `electric` deliberately partial (3 of 43 slots —
+`art/electric/archery/target.idle`, `target.hit`, `hitEffect`); M11 fills the rest, in one
+consistent pass, re-using the M8 pipeline (`scripts/art/process-set.mjs` constants, the same
+render boxes, the same global knight scale) so electric sprites drop into the existing layout
+pixel-for-pixel. Keep every prompt in the `docs/art-prompts.md` electric appendix.
+
+**Questions are not in scope.** `electric`'s sections, questions, options and scores stay exactly
+as `default` seeded them. Do not reword, reorder or re-score anything; the only text that may
+differ is the mode title and the existing theme/copy fields M9 already set.
+
+Three things this milestone has to resolve, not work around:
+- `pnpm art:wire` is hardcoded to the `default` slug (`src/seed/wire-art.ts`). Make it take a mode
+  slug and keep `default` the default.
+- `scripts/art/verify-electric.mjs` asserts that most slots *do* resolve to `default` URLs. Those
+  assertions invert once `electric` is complete — update the script so it proves the opposite:
+  every slot resolves to an `electric` URL and no `default` URL is reachable in `/electric`.
+- **Keep M9's per-slot fallback claim demonstrable.** It was proven *by* `electric` being partial,
+  and a complete `electric` retires that evidence. Re-prove it on a throwaway scratch mode (create,
+  verify, delete) or keep one named slot deliberately empty and assert it. Say which you chose in
+  `docs/modes.md` and `PROGRESS.md`.
+
+*Done when:* `/electric` plays end to end on electric art with zero `default` URLs and zero
+placeholders reachable, `/default` is completely unchanged, the questions are byte-identical to
+`default`'s, per-slot fallback is still proven somewhere, and all §8 gates are green.
+*Show the user the sample before the full pass* — same gate as M8: the knight plus one section,
+reviewed against the `default` originals side by side, before the remaining ~37 assets are made.
+
 ### Verification you owe on every milestone
 
 Run `pnpm lint`, `pnpm test`, and actually open the app. Report failures with the real output —
@@ -390,6 +432,7 @@ them; if one turns out to be unbuildable, say so and stop rather than quietly su
 | 2 | **Bands are means, with two separate band sets.** Sections: `0-0.9` / `1-2.9` / `3-4` — so a 2.5 mean is mid-band. Final pose: `>=2.9` / `>=1.7` / else. | §4 |
 | 3 | **Landscape everywhere.** Desktop and tablet, both landscape. No portrait layout; portrait gets "rotate to play". | §3.6 |
 | 4 | **You generate the `default` art.** Other modes are supplied by the backend user, and anything they don't upload falls back to `default`. | §3.5, §7, M8 |
+| 7 | **You generate the full `electric` art too** (added 2026-10-13, amends #4 for this one mode). `electric` is an electronic/cyberpunk **re-skin of `default`** — same compositions, poses and anchors, restyled; its questions stay identical to `default`'s. Every other mode still follows #4. | §3.5, M11 |
 | 5 | **Unknown mode slug → 404.** No fallback, no redirect. | §7 |
 | 6 | **Results permalink is shareable and permanent.** Which is exactly why the run id must be unguessable. | §3.4, §6 |
 

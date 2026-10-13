@@ -14,6 +14,7 @@
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "seed": "cross-env NODE_OPTIONS=--no-deprecation tsx src/seed/run.ts",
     "art:wire": "cross-env NODE_OPTIONS=--no-deprecation tsx src/seed/wire-art.ts",
+    "art:verify-fallback": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/art/verify-fallback-scratch.ts",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "test": "pnpm run test:int && pnpm run test:e2e",
     "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import=tsx/esm\" playwright test --config=playwright.config.ts",

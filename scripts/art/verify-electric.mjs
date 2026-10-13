@@ -1,36 +1,36 @@
 /**
- * M9 re-skin verification — a headless Playwright pass over /electric (the partial mode shipped
- * through /admin). This is the literal done-when: "a mode with only one uploaded asset is still
- * fully playable."
+ * M11 electric full-set verification — a headless Playwright pass over /electric now that the mode
+ * carries the COMPLETE art set (40 uploads over 43 slots, wired by `pnpm art:wire electric`).
  *
- * Plays the complete 15-question run and asserts, scene by scene:
- *   - the uploaded archery target idle (the ONLY electric asset after phase 1) is what renders,
- *     and the default archery target idle is shadowed;
- *   - everything electric does not override still renders the default media URL — background,
- *     knight poses, projectile, hit target, hit effect, section animations, title, results;
+ * The M9 version of this script proved the partial re-skin: one uploaded asset rendering, every
+ * other slot falling back to `default`. M11 inverts that claim (see QODER.md M11): after this run
+ *
+ *   - every art slot that renders resolves to an `electric-*` media URL — title background and
+ *     logo, per-section backgrounds and knight poses, targets, projectile, hit effects, band
+ *     animations, results background and final knight;
+ *   - NO media URL of the `default` mode is reachable anywhere in /electric — asserted for every
+ *     scene against the full set of 40 default media docs, across <img> srcs AND CSS
+ *     background-images;
  *   - no `.ark-placeholder` is ever reachable and every <img> loads;
- *   - boxing / swordsmanship / title / results contain ZERO electric URLs (the re-skin is scoped);
- *   - the theme fields took effect (accent #4dd8ff on the stage, title copy says "Electric");
- *   - bands / results / dead-QWEN fallback report behave exactly as the full-set run does.
+ *   - the electric mode's questions are byte-identical to `default`'s (M11 contract — only art,
+ *     title, theme and copy may differ);
+ *   - the theme fields still take effect (accent #4dd8ff, title heading / results kicker
+ *     "Electric") and bands / results / dead-QWEN fallback report behave as the full-set run does.
  *
- * Two expectation levels:
- *   node scripts/art/verify-electric.mjs          → partial: one uploaded asset (after phase 1)
- *   node scripts/art/verify-electric.mjs full     → all three uploaded (after phase 2)
+ * Per-slot fallback (the M9 claim) is no longer demonstrable on `electric` — it lives on a
+ * throwaway scratch mode in the M11 fallback re-proof (see docs/modes.md).
  *
- * Screenshots land in docs/modes-proof/ as verify-<mode>-*.png. Run with the dev server up and
- * QWEN_BASE_URL=http://127.0.0.1:9/v1 (the fallback path is what gets verified — never the live
- * endpoint).
+ * Screenshots land in docs/modes-proof/ as verify-m11-*.png. Run with the dev server up, wired by
+ * `pnpm art:wire electric`, and QWEN_BASE_URL=http://127.0.0.1:9/v1 (the fallback path is what gets
+ * verified — never the live endpoint):
+ *
+ *   node scripts/art/verify-electric.mjs
  */
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 
 const BASE = process.env.VERIFY_URL ?? 'http://localhost:3000/electric'
-const ELEVEL = process.argv[2] ?? 'partial'
-if (!['partial', 'full'].includes(ELEVEL)) {
-  console.error('usage: node scripts/art/verify-electric.mjs [partial|full]')
-  process.exit(1)
-}
 const OUT = path.resolve(process.cwd(), 'docs/modes-proof')
 mkdirSync(OUT, { recursive: true })
 
@@ -46,51 +46,78 @@ const pass = (msg) => console.log(`  + ${msg}`)
 const mediaRes = await fetch(new URL('/api/media?limit=200&depth=0', BASE))
 if (!mediaRes.ok) throw new Error(`GET /api/media → HTTP ${mediaRes.status()} (is the dev server up?)`)
 const mediaDocs = (await mediaRes.json()).docs
-const mediaUrl = (filename) => {
+const urlOf = (filename) => {
   const found = mediaDocs.filter((d) => d.filename === filename)
-  if (found.length === 0) throw new Error(`media "${filename}" is missing from the database`)
+  if (found.length === 0) throw new Error(`media "${filename}" is missing from the database — run \`pnpm art:wire electric\``)
   return decodeURIComponent(found[0].url)
 }
 
-const upload = mediaDocs.find((d) => d.filename === 'target.idle@2x.png')
-if (!upload || !(upload.alt ?? '').startsWith('Electric re-skin')) {
-  throw new Error('no media "target.idle@2x.png" tagged "Electric re-skin" — run phase1 of scripts/re-skin-proof.mjs first')
+const ELE = {
+  titleBackground: urlOf('electric-title-background@2x.png'),
+  titleLogo: urlOf('electric-title-logo@2x.png'),
+  archeryBackground: urlOf('electric-archery-background@2x.png'),
+  archeryKnightIdle: urlOf('electric-archery-knight.idle@2x.png'),
+  archeryKnightAttack: urlOf('electric-archery-knight.attack@2x.png'),
+  archeryTargetIdle: urlOf('electric-archery-target.idle@2x.png'),
+  archeryTargetHit: urlOf('electric-archery-target.hit@2x.png'),
+  archeryProjectile: urlOf('electric-archery-projectile@2x.png'),
+  archeryHitEffect: urlOf('electric-archery-hitEffect@2x.png'),
+  archeryAnim129: urlOf('electric-archery-animation.1-2.9@2x.png'),
+  boxingBackground: urlOf('electric-boxing-background@2x.png'),
+  boxingKnightIdle: urlOf('electric-boxing-knight.idle@2x.png'),
+  boxingKnightAttack: urlOf('electric-boxing-knight.attack@2x.png'),
+  boxingKnightFail: urlOf('electric-boxing-knight.fail@2x.png'),
+  boxingTargetHit: urlOf('electric-boxing-target.hit@2x.png'),
+  boxingHitEffect: urlOf('electric-boxing-hitEffect@2x.png'),
+  boxingAnim09: urlOf('electric-boxing-animation.0-0.9@2x.png'),
+  swordBackground: urlOf('electric-swordsmanship-background@2x.png'),
+  swordKnightIdle: urlOf('electric-swordsmanship-knight.idle@2x.png'),
+  swordKnightAttack: urlOf('electric-swordsmanship-knight.attack@2x.png'),
+  swordKnightCelebrate: urlOf('electric-swordsmanship-knight.celebrate@2x.png'),
+  swordTargetHit: urlOf('electric-swordsmanship-target.hit@2x.png'),
+  swordHitEffect: urlOf('electric-swordsmanship-hitEffect@2x.png'),
+  swordAnim34: urlOf('electric-swordsmanship-animation.3-4@2x.png'),
+  resultsBackground: urlOf('electric-results-background@2x.png'),
+  resultsKnightAverage: urlOf('electric-results-finalKnight.average@2x.png'),
 }
-// inside a decoded src this string is unambiguous: the default's URL has `archery-` between
-// `/file/` and `target`, so it can never contain this needle.
-const ELEC = {
-  idle: '/api/media/file/target.idle@2x.png',
-  hit: '/api/media/file/target.hit@2x.png',
-  effect: '/api/media/file/hitEffect@2x.png',
+
+// The full default media set: 43 slots over 40 files (hover reuses idle three times). If these
+// are not all present the no-fallback claim cannot be proven — and /default itself would be broken.
+const defaultUrls = mediaDocs
+  .filter((d) => !d.filename.startsWith('electric-'))
+  .map((d) => decodeURIComponent(d.url))
+if (defaultUrls.length !== 40) {
+  throw new Error(`expected 40 default media docs, found ${defaultUrls.length} — is /default still fully wired?`)
 }
-const ELEC_ALL = [ELEC.idle, ELEC.hit, ELEC.effect]
-const DEF = {
-  archeryBackground: mediaUrl('archery-background@2x.png'),
-  archeryKnightIdle: mediaUrl('archery-knight.idle@2x.png'),
-  archeryTargetIdle: mediaUrl('archery-target.idle@2x.png'),
-  archeryTargetHit: mediaUrl('archery-target.hit@2x.png'),
-  archeryHitEffect: mediaUrl('archery-hitEffect@2x.png'),
-  archeryProjectile: mediaUrl('archery-projectile@2x.png'),
-  archeryAnim129: mediaUrl('archery-animation.1-2.9@2x.png'),
-  boxingBackground: mediaUrl('boxing-background@2x.png'),
-  boxingKnightIdle: mediaUrl('boxing-knight.idle@2x.png'),
-  boxingKnightFail: mediaUrl('boxing-knight.fail@2x.png'),
-  boxingTargetHit: mediaUrl('boxing-target.hit@2x.png'),
-  boxingHitEffect: mediaUrl('boxing-hitEffect@2x.png'),
-  boxingAnim09: mediaUrl('boxing-animation.0-0.9@2x.png'),
-  swordBackground: mediaUrl('swordsmanship-background@2x.png'),
-  swordKnightIdle: mediaUrl('swordsmanship-knight.idle@2x.png'),
-  swordKnightCelebrate: mediaUrl('swordsmanship-knight.celebrate@2x.png'),
-  swordTargetHit: mediaUrl('swordsmanship-target.hit@2x.png'),
-  swordHitEffect: mediaUrl('swordsmanship-hitEffect@2x.png'),
-  swordAnim34: mediaUrl('swordsmanship-animation.3-4@2x.png'),
-  titleBackground: mediaUrl('title-background@2x.png'),
-  titleLogo: mediaUrl('title-logo@2x.png'),
-  resultsKnightAverage: mediaUrl('results-finalKnight.average@2x.png'),
-  resultsBackground: mediaUrl('results-background@2x.png'),
+const DEFAULT_SET = new Set(defaultUrls)
+const electricCount = mediaDocs.filter((d) => d.filename.startsWith('electric-')).length
+if (electricCount !== 40) {
+  throw new Error(`expected 40 electric media docs, found ${electricCount} — run \`pnpm art:wire electric\``)
 }
-console.log(`verifying ${BASE} in "${ELEVEL}" mode`)
-console.log(`  electric upload: ${ELEC.idle}`)
+console.log(`verifying ${BASE} (full set: ${electricCount} electric uploads vs ${defaultUrls.length} default)`)
+
+// --- the questions are byte-identical to default's (M11 contract) -------------------------------
+{
+  const modesRes = await fetch(new URL('/api/modes?limit=10&depth=0', BASE))
+  if (!modesRes.ok) throw new Error(`GET /api/modes → HTTP ${modesRes.status()}`)
+  const modes = (await modesRes.json()).docs
+  const def = modes.find((m) => m.slug === 'default')
+  const elec = modes.find((m) => m.slug === 'electric')
+  if (!def || !elec) throw new Error('modes "default"/"electric" missing from the database')
+  const questionsOf = (mode) =>
+    JSON.stringify(
+      mode.sections.map((s) => ({
+        key: s.key,
+        questions: s.questions.map((q) => ({
+          key: q.key,
+          text: q.text,
+          options: q.options.map((o) => ({ text: o.text, score: o.score })),
+        })),
+      })),
+    )
+  if (questionsOf(def) === questionsOf(elec)) pass('electric questions are byte-identical to default\'s')
+  else fail('electric questions differ from default\'s — the M11 contract says art only')
+}
 
 // Answer script: target index = score (0->4 left->right). Section means 1.8 / 0.6 / 3.6 -> all
 // three section bands exercised, overall 2.0 -> 'average' final knight. (Same as the full-set run.)
@@ -113,8 +140,8 @@ page.on('console', (msg) => {
 page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${err}`))
 
 const shot = async (name) => {
-  await page.screenshot({ path: path.join(OUT, `verify-${ELEVEL}-${name}.png`) })
-  notes.push(`shot verify-${ELEVEL}-${name}.png`)
+  await page.screenshot({ path: path.join(OUT, `verify-m11-${name}.png`) })
+  notes.push(`shot verify-m11-${name}.png`)
 }
 
 const waitImagesSettled = async (where, timeout = 15000) => {
@@ -147,24 +174,75 @@ const assertNoPlaceholders = async (where) => {
   }
 }
 
-/** Which resolved media URL sits behind every <img> currently in the DOM. */
+/**
+ * Every resolved media URL currently in the DOM: <img> srcs plus every element's CSS
+ * background-image (the game renders most art as <img>, but the inversion must not have a blind
+ * spot). Non-media URLs are filtered out; values are decoded so they compare against the
+ * database's URLs.
+ */
 const srcList = () =>
-  page.evaluate(() => Array.from(document.images).map((img) => decodeURIComponent(img.currentSrc || img.src)))
+  page.evaluate(() => {
+    const out = []
+    for (const img of document.images) {
+      const src = img.currentSrc || img.src
+      if (src.includes('/api/media/file/')) out.push(decodeURIComponent(src))
+    }
+    for (const el of document.querySelectorAll('*')) {
+      const bg = getComputedStyle(el).backgroundImage
+      if (!bg || !bg.includes('/api/media/file/')) continue
+      for (const m of bg.matchAll(/url\((?:["']?)([^"')]+)(?:["']?)\)/g)) {
+        if (m[1].includes('/api/media/file/')) out.push(decodeURIComponent(m[1]))
+      }
+    }
+    return out
+  })
+
+/** Strip a possible absolute origin so both `/api/...` and `http://host/api/...` compare equal. */
+const normSrc = (s) => {
+  const i = s.indexOf('/api/media/file/')
+  return i >= 0 ? s.slice(i) : s
+}
 
 /**
- * The re-skin assertions: `must` entries prove a URL (upload or default fallback) is rendered,
- * `mustNot` entries prove a URL is shadowed / absent from this scene.
+ * The M11 inversion: no `default` media URL may be reachable in /electric, in any scene. Runs
+ * against the full set of 40 default URLs — a mode that resolves a single slot to a default
+ * asset fails here even if the playthrough itself looks fine.
+ */
+const assertNoDefault = async (where) => {
+  const list = await srcList()
+  const hits = [...new Set(list.map(normSrc).filter((s) => DEFAULT_SET.has(s)))]
+  if (hits.length === 0) pass(`${where}: no default media URL reachable`)
+  else fail(`${where}: default URL(s) reachable — ${hits.join(' | ')}`)
+}
+
+/**
+ * The per-slot assertions: `must` entries prove an (electric) URL is rendered as a substring of a
+ * src; `mustNot` entries prove a URL is shadowed.
  */
 const checkSrcs = async (where, { must = [], mustNot = [] }) => {
   const list = await srcList()
   for (const [label, needle] of must) {
     if (list.some((s) => s.includes(needle))) pass(`${where}: ${label}`)
-    else fail(`${where}: ${label} — no img src contains ${needle}\n      srcs: ${list.join(' | ')}`)
+    else fail(`${where}: ${label} — no src contains ${needle}\n      srcs: ${list.join(' | ')}`)
   }
   for (const [label, needle] of mustNot) {
     const hits = list.filter((s) => s.includes(needle))
     if (hits.length === 0) pass(`${where}: ${label}`)
     else fail(`${where}: ${label} — ${hits.length} img(s) use ${needle}\n      srcs: ${list.join(' | ')}`)
+  }
+}
+
+/** Wait until some src contains `needle` (pose swaps race the flight moment) — true when seen. */
+const waitSrc = async (needle, timeout = 4000) => {
+  try {
+    await page.waitForFunction(
+      (n) => Array.from(document.images).some((img) => decodeURIComponent(img.currentSrc || img.src).includes(n)),
+      needle,
+      { timeout },
+    )
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -184,7 +262,7 @@ const waitTargetsEnabled = () =>
     return !!first && !first.disabled
   }, undefined, { timeout: 30000 })
 
-// One recorded answer + its attack beat. The scan runs at the flight moment so the overlay
+// One recorded answer + its attack beat. The scan runs at the flight/impact moment so the overlay
 // (target-hit + hit-effect sprites, rendered at beat start, shown at impact) is already in the DOM.
 const answer = async (index, opts = {}) => {
   await waitTargetsEnabled()
@@ -235,11 +313,11 @@ try {
   else fail(`stage accent is "${accent}", expected "#4dd8ff"`)
   await checkSrcs('title', {
     must: [
-      ['title background (default)', DEF.titleBackground],
-      ['title logo (default)', DEF.titleLogo],
+      ['electric title background renders', ELE.titleBackground],
+      ['electric title logo renders', ELE.titleLogo],
     ],
-    mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
   })
+  await assertNoDefault('title')
   await shot('01-title')
 
   // --- intake ----------------------------------------------------------------------------------
@@ -264,46 +342,42 @@ try {
     await page.waitForSelector('.ark-question-scene', { timeout: 30000 })
     if (s > 0) await waitQuestion(s + 1, 1)
 
-    // Section entry — idle scene, background, knight and five targets.
+    // Section entry — idle scene, background, knight and five targets, all electric now.
     await waitImagesSettled(`${section.key} q1`)
     await assertNoPlaceholders(`${section.key} q1`)
 
     if (s === 0) {
-      // THE phase-1 proof: the uploaded electric target idle renders; its default counterpart is
-      // shadowed; background and knight fall back to default.
       await checkSrcs('archery q1', {
         must: [
-          ['uploaded electric target idle renders', ELEC.idle],
-          ['archery background falls back to default', DEF.archeryBackground],
-          ['archery knight idle falls back to default', DEF.archeryKnightIdle],
+          ['electric archery background renders', ELE.archeryBackground],
+          ['electric archery knight idle renders', ELE.archeryKnightIdle],
+          ['electric archery target idle renders', ELE.archeryTargetIdle],
         ],
-        mustNot: [['default archery target idle is shadowed', DEF.archeryTargetIdle]],
       })
       await shot('03-archery-q1')
       await page.locator('.ark-target').nth(3).hover()
       await page.waitForSelector('.ark-bubble', { timeout: 5000 })
-      pass('hover shows the speech bubble (hover pose falls back to the default target)')
+      pass('hover shows the speech bubble (hover pose re-uses the electric idle)')
       await shot('03b-archery-q1-hover')
       await page.mouse.move(10, 10) // clear hover before the attack beat scans
     } else if (s === 1) {
       await checkSrcs('boxing q1', {
         must: [
-          ['boxing background (default)', DEF.boxingBackground],
-          ['boxing knight idle (default)', DEF.boxingKnightIdle],
+          ['electric boxing background renders', ELE.boxingBackground],
+          ['electric boxing knight idle renders', ELE.boxingKnightIdle],
         ],
-        mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
       })
       await shot('07-boxing-q1')
     } else {
       await checkSrcs('swordsmanship q1', {
         must: [
-          ['swordsmanship background (default)', DEF.swordBackground],
-          ['swordsmanship knight idle (default)', DEF.swordKnightIdle],
+          ['electric swordsmanship background renders', ELE.swordBackground],
+          ['electric swordsmanship knight idle renders', ELE.swordKnightIdle],
         ],
-        mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
       })
       await shot('10-sword-q1')
     }
+    await assertNoDefault(`${section.key} q1`)
 
     for (let q = 0; q < section.scores.length; q += 1) {
       const index = section.scores[q]
@@ -312,32 +386,19 @@ try {
         Object.assign(opts, {
           ranged: true,
           flightShot: '04-archery-flight',
-          scan: () =>
-            checkSrcs('archery attack', {
+          scan: async () => {
+            await checkSrcs('archery attack', {
               must: [
-                ['electric target idle still on the untouched targets', ELEC.idle],
-                ['default projectile flies (fallback)', DEF.archeryProjectile],
-                ...(ELEVEL === 'full'
-                  ? [
-                      ['uploaded electric target hit renders', ELEC.hit],
-                      ['uploaded electric hit effect renders', ELEC.effect],
-                    ]
-                  : [
-                      ['default target hit in the overlay (fallback)', DEF.archeryTargetHit],
-                      ['default hit effect in the overlay (fallback)', DEF.archeryHitEffect],
-                    ]),
+                ['electric target idle still on the untouched targets', ELE.archeryTargetIdle],
+                ['electric projectile flies', ELE.archeryProjectile],
+                ['electric target hit renders in the overlay', ELE.archeryTargetHit],
+                ['electric hit effect renders in the overlay', ELE.archeryHitEffect],
               ],
-              mustNot:
-                ELEVEL === 'full'
-                  ? [
-                      ['default archery target hit is shadowed', DEF.archeryTargetHit],
-                      ['default archery hit effect is shadowed', DEF.archeryHitEffect],
-                    ]
-                  : [
-                      ['electric target hit not uploaded yet (partial)', ELEC.hit],
-                      ['electric hit effect not uploaded yet (partial)', ELEC.effect],
-                    ],
-            }),
+            })
+            if (await waitSrc(ELE.archeryKnightAttack)) pass('archery attack: knight swapped to the electric attack pose')
+            else fail('archery attack: electric attack pose never rendered')
+            await assertNoDefault('archery attack')
+          },
         })
       }
       if (s === 0 && q === 1) Object.assign(opts, { impactShot: '05-archery-impact' })
@@ -345,28 +406,34 @@ try {
         Object.assign(opts, {
           melee: true,
           meleeShot: '08-boxing-attack',
-          scan: () =>
-            checkSrcs('boxing attack', {
+          scan: async () => {
+            await checkSrcs('boxing attack', {
               must: [
-                ['default boxing target hit in the overlay (fallback)', DEF.boxingTargetHit],
-                ['default boxing hit effect in the overlay (fallback)', DEF.boxingHitEffect],
+                ['electric boxing target hit renders in the overlay', ELE.boxingTargetHit],
+                ['electric boxing hit effect renders in the overlay', ELE.boxingHitEffect],
               ],
-              mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
-            }),
+            })
+            if (await waitSrc(ELE.boxingKnightAttack)) pass('boxing attack: knight swapped to the electric attack pose')
+            else fail('boxing attack: electric attack pose never rendered')
+            await assertNoDefault('boxing attack')
+          },
         })
       }
       if (s === 2 && q === 0) {
         Object.assign(opts, {
           melee: true,
           meleeShot: '11-sword-attack',
-          scan: () =>
-            checkSrcs('swordsmanship attack', {
+          scan: async () => {
+            await checkSrcs('swordsmanship attack', {
               must: [
-                ['default swordsmanship target hit in the overlay (fallback)', DEF.swordTargetHit],
-                ['default swordsmanship hit effect in the overlay (fallback)', DEF.swordHitEffect],
+                ['electric swordsmanship target hit renders in the overlay', ELE.swordTargetHit],
+                ['electric swordsmanship hit effect renders in the overlay', ELE.swordHitEffect],
               ],
-              mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
-            }),
+            })
+            if (await waitSrc(ELE.swordKnightAttack)) pass('swordsmanship attack: knight swapped to the electric attack pose')
+            else fail('swordsmanship attack: electric attack pose never rendered')
+            await assertNoDefault('swordsmanship attack')
+          },
         })
       }
 
@@ -383,8 +450,8 @@ try {
     else pass(`${section.key} end: pose '${pose}' on band ${section.band}`)
     const copy = (await page.locator('.ark-section-end-copy').innerText()).trim()
     notes.push(`${section.key} copy: "${copy}"`)
-    const anim = s === 0 ? DEF.archeryAnim129 : s === 1 ? DEF.boxingAnim09 : DEF.swordAnim34
-    const poseUrl = s === 0 ? DEF.archeryKnightIdle : s === 1 ? DEF.boxingKnightFail : DEF.swordKnightCelebrate
+    const anim = s === 0 ? ELE.archeryAnim129 : s === 1 ? ELE.boxingAnim09 : ELE.swordAnim34
+    const poseUrl = s === 0 ? ELE.archeryKnightIdle : s === 1 ? ELE.boxingKnightFail : ELE.swordKnightCelebrate
     const animLoaded = await page
       .locator('img.ark-section-anim-slot')
       .evaluate((img) => img.complete && img.naturalWidth > 0)
@@ -393,11 +460,11 @@ try {
     else pass(`${section.key} end: beat strip loaded`)
     await checkSrcs(`${section.key} section end`, {
       must: [
-        [`band animation falls back to default (${anim.split('/').pop()})`, anim],
-        [`band knight pose falls back to default (${poseUrl.split('/').pop()})`, poseUrl],
+        [`electric band animation renders (${anim.split('/').pop()})`, anim],
+        [`electric band knight pose renders (${poseUrl.split('/').pop()})`, poseUrl],
       ],
-      mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
     })
+    await assertNoDefault(`${section.key} section end`)
     await shot(s === 0 ? '06-archery-section-end' : s === 1 ? '09-boxing-section-end' : '12-sword-section-end')
 
     await page.locator('.ark-section-end-scene .ark-btn--primary').click()
@@ -435,11 +502,11 @@ try {
   await assertNoPlaceholders('results')
   await checkSrcs('results', {
     must: [
-      ['average final knight (default)', DEF.resultsKnightAverage],
-      ['results background (default)', DEF.resultsBackground],
+      ['electric average final knight renders', ELE.resultsKnightAverage],
+      ['electric results background renders', ELE.resultsBackground],
     ],
-    mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
   })
+  await assertNoDefault('results')
   await shot('13-results')
 
   await page.locator('.ark-results-report-row .ark-btn').click()
@@ -451,9 +518,7 @@ try {
   if (headline.length === 0) fail('report headline empty')
   else notes.push(`headline: "${headline}"`)
   await assertNoPlaceholders('report')
-  await checkSrcs('report', {
-    mustNot: ELEC_ALL.map((u) => [`electric URL absent (${u.split('/').pop()})`, u]),
-  })
+  await assertNoDefault('report')
   await shot('14-report-fallback')
 } catch (error) {
   failures += 1
@@ -472,7 +537,7 @@ if (consoleErrors.length > 0) {
 }
 
 if (failures > 0) {
-  console.log(`\nELECTRIC VERIFICATION FAILED (${ELEVEL}) — ${failures} problem(s)`)
+  console.log(`\nELECTRIC FULL-SET VERIFICATION FAILED (M11) — ${failures} problem(s)`)
   process.exit(1)
 }
-console.log(`\nELECTRIC RE-SKIN VERIFICATION PASSED (${ELEVEL})`)
+console.log('\nELECTRIC FULL-SET VERIFICATION PASSED (M11)')

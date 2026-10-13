@@ -1,11 +1,16 @@
 /**
- * Wire the processed art set (`art/default/**`) into the CMS — run with `pnpm art:wire`.
+ * Wire a processed art set (`art/<slug>/**`) into the CMS — run with `pnpm art:wire [slug]`.
  *
- * Idempotent: every file is uploaded to the media collection under a unique filename
- * (`<section>-<basename>`), found-or-created by filename, then the `default` mode's asset slots are
- * updated to point at the media docs. `--replace` re-uploads files that changed on disk (deletes
- * the old media doc first). `target.hover` intentionally reuses the idle media — the CSS lift and
- * glow do the rest. Nothing else on the mode (copy, questions, theme, ai) is touched.
+ * The argument is a mode slug; it defaults to `default` so the pre-M11 usage keeps working.
+ * `pnpm art:wire electric` wires `art/electric/**` into the `electric` mode (see QODER.md M11).
+ *
+ * Idempotent: every file is uploaded to the media collection under a unique filename, found-or-
+ * created by filename, then the mode's asset slots are updated to point at the media docs.
+ * Non-default slugs are namespaced (`electric-archery-knight.idle@2x.png`) so they can never
+ * collide with — or accidentally reuse — the `default` mode's media. `--replace` re-uploads files
+ * that changed on disk (deletes the old media doc first). `target.hover` intentionally reuses the
+ * idle media — the CSS lift and glow do the rest. Nothing else on the mode (copy, questions,
+ * theme, ai) is touched.
  */
 import 'dotenv/config'
 
@@ -18,7 +23,12 @@ import { getPayload } from 'payload'
 import config from '../payload.config'
 import type { Mode } from '../payload-types'
 
-const ART_ROOT = path.join(process.cwd(), 'art', 'default')
+const cliArgs = process.argv.slice(2).filter((arg) => !arg.startsWith('--'))
+const SLUG = cliArgs[0] ?? 'default'
+const SET_TITLE = SLUG.charAt(0).toUpperCase() + SLUG.slice(1)
+const ART_ROOT = path.join(process.cwd(), 'art', SLUG)
+const UPLOAD_PREFIX = SLUG === 'default' ? '' : `${SLUG}-`
+const DEFAULT_ALT_PREFIX = 'Default — '
 const STAGE = path.join(os.tmpdir(), 'ark-art')
 const REPLACE = process.argv.includes('--replace')
 
@@ -74,7 +84,7 @@ const FILES: ArtFile[] = [
 const payload = await getPayload({ config })
 
 async function mediaId(entry: ArtFile): Promise<number> {
-  const uploadName = `${entry.dir}-${entry.file}`
+  const uploadName = `${UPLOAD_PREFIX}${entry.dir}-${entry.file}`
   const existing = await payload.find({
     collection: 'media',
     where: { filename: { equals: uploadName } },
@@ -92,14 +102,14 @@ async function mediaId(entry: ArtFile): Promise<number> {
   await copyFile(path.join(ART_ROOT, entry.dir, entry.file), staged)
   const doc = await payload.create({
     collection: 'media',
-    data: { alt: entry.alt },
+    data: { alt: `${SET_TITLE} — ${entry.alt.slice(DEFAULT_ALT_PREFIX.length)}` },
     filePath: staged,
     overrideAccess: true,
   })
   return doc.id
 }
 
-console.log(`Uploading ${FILES.length} files from art/default/ …`)
+console.log(`Uploading ${FILES.length} files from art/${SLUG}/ …`)
 const ids = new Map<string, number>()
 for (const entry of FILES) {
   ids.set(`${entry.dir}/${entry.file}`, await mediaId(entry))
@@ -112,14 +122,19 @@ const id = (key: string): number => {
 
 const found = await payload.find({
   collection: 'modes',
-  where: { slug: { equals: 'default' } },
+  where: { slug: { equals: SLUG } },
   limit: 1,
   depth: 0,
   overrideAccess: true,
 })
 const mode = found.docs[0] as Mode | undefined
 if (!mode) {
-  console.error('No "default" mode in the database — run `pnpm seed` first.')
+  console.error(`No "${SLUG}" mode in the database.`)
+  console.error(
+    SLUG === 'default'
+      ? 'Run `pnpm seed` first.'
+      : 'Create the mode in /admin (or duplicate `default` — see docs/modes.md) first.',
+  )
   process.exit(1)
 }
 
@@ -185,7 +200,7 @@ await payload.update({
 // --- verify: re-read the mode with relations populated and report every slot.
 const check = await payload.find({
   collection: 'modes',
-  where: { slug: { equals: 'default' } },
+  where: { slug: { equals: SLUG } },
   limit: 1,
   depth: 1,
   overrideAccess: true,
