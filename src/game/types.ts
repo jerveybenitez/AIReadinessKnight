@@ -1,4 +1,5 @@
 import type { FinalBandKey, SectionBandKey, SectionKey } from './constants'
+import type { Report, ReportState } from './report'
 
 /**
  * Wire types for the game. Plain JSON — this is what crosses the server→client boundary.
@@ -89,6 +90,8 @@ export interface RunSnapshot {
   answerCount: number
   complete: boolean
   answers: Answer[]
+  /** The cached readiness report (§3.4: "the knight, the scores and the report"); null until written. */
+  report: ReportState | null
 }
 
 /** Shape of the `answer` endpoint response. */
@@ -96,4 +99,11 @@ export interface AnswerAck {
   runId: string
   answerCount: number
   complete: boolean
+}
+
+/** Shape of the `report` endpoint response — the generated (or re-read) report. */
+export interface ReportAck {
+  runId: string
+  status: ReportState['status']
+  report: Report
 }

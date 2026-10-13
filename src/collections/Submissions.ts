@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { answerEndpoint, createRunEndpoint, getRunEndpoint } from '../endpoints/runs'
+import { answerEndpoint, createRunEndpoint, getRunEndpoint, reportEndpoint } from '../endpoints/runs'
 import {
   FINAL_BAND_KEYS,
   MAX_ANSWERS,
@@ -36,7 +36,7 @@ export const Submissions: CollectionConfig = {
     update: ({ req: { user } }) => Boolean(user),
     delete: ({ req: { user } }) => Boolean(user),
   },
-  endpoints: [createRunEndpoint, getRunEndpoint, answerEndpoint],
+  endpoints: [createRunEndpoint, getRunEndpoint, answerEndpoint, reportEndpoint],
   fields: [
     {
       name: 'runId',

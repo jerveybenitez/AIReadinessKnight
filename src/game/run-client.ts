@@ -2,12 +2,13 @@
  * Client-side access to the run endpoints. The only thing persisted locally is the opaque
  * runId in sessionStorage (never answers, never company data — see ADR 0002).
  */
-import type { Answer, AnswerAck, RunSnapshot } from './types'
+import type { Answer, AnswerAck, ReportAck, RunSnapshot } from './types'
 
 const ENDPOINTS = {
   create: '/api/submissions/runs/create',
   run: (runId: string) => `/api/submissions/runs/${encodeURIComponent(runId)}`,
   answer: (runId: string) => `/api/submissions/runs/${encodeURIComponent(runId)}/answer`,
+  report: (runId: string) => `/api/submissions/runs/${encodeURIComponent(runId)}/report`,
 }
 
 export class RunRequestError extends Error {
@@ -76,6 +77,14 @@ export async function submitAnswer(
     method: 'POST',
     body: JSON.stringify(answer),
   })
+}
+
+/**
+ * Ask for the readiness report. The server generates it at most once per run and caches it on
+ * the submission — calling this again is a cheap re-read, never a re-bill (qwen-report skill).
+ */
+export async function requestReport(runId: string): Promise<ReportAck> {
+  return request<ReportAck>(ENDPOINTS.report(runId), { method: 'POST' })
 }
 
 // --- sessionStorage run pointer -------------------------------------------------------------

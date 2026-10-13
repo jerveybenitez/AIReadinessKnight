@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 
 import { assetOr } from '../assets'
 import { Sprite } from '../components/Sprite'
-import { clearRunId } from '../run-client'
+import { clearRunId, requestReport } from '../run-client'
 import type { FinalBandKey } from '../constants'
+import type { ReportState } from '../report'
 import type { RunScore } from '../scoring'
 import type { ResolvedMode } from '../types'
+import { ReportPanel, type ReportPhase } from './ReportPanel'
 
 /**
  * Results (§3.4) — the end of the run, reachable two ways that must never diverge: in-game when
@@ -16,7 +18,11 @@ import type { ResolvedMode } from '../types'
  * score with the same `scoreRun` used here, from the same narrow RunSnapshot.
  *
  * The permalink is the access token (§6) — it is permanent, not single-use, and shows only what a
- * recipient should see: the knight, the scores and (from M7) the report.
+ * recipient should see: the knight, the scores and the report.
+ *
+ * M7: the scores render immediately (they are computed locally); report generation starts in the
+ * background and the "Read the full report" view shows its progress. A QWEN outage degrades the
+ * report to the deterministic template — it can never block or break this screen.
  */
 
 export interface ResultsSceneProps {
@@ -24,6 +30,8 @@ export interface ResultsSceneProps {
   knightName: string
   runId: string
   score: RunScore
+  /** The cached report from the server snapshot; null means "generate on mount" (M7). */
+  initialReport: ReportState | null
 }
 
 const FINAL_BAND_LABEL: Record<FinalBandKey, string> = {
@@ -39,14 +47,41 @@ const subscribeToNothing = () => () => {}
 const readOrigin = () => window.location.origin
 const readServerOrigin = () => ''
 
-export function ResultsScene({ mode, knightName, runId, score }: ResultsSceneProps) {
+export function ResultsScene({ mode, knightName, runId, score, initialReport }: ResultsSceneProps) {
   const origin = useSyncExternalStore(subscribeToNothing, readOrigin, readServerOrigin)
   const permalink = `${origin}/result/${runId}`
 
+  const [view, setView] = useState<'scores' | 'report'>('scores')
+  const [report, setReport] = useState<ReportState | null>(initialReport)
+  const [reportPhase, setReportPhase] = useState<ReportPhase>(initialReport ? 'ready' : 'loading')
+
+  // Generation starts as soon as results mount, so the report is usually ready by the time the
+  // player opens it. The endpoint caches per run: this fires at most one model call, ever.
+  const startedRef = useRef(false)
+  const loadReport = useCallback(() => {
+    requestReport(runId)
+      .then((ack) => {
+        setReport({ status: ack.status, report: ack.report })
+        setReportPhase('ready')
+      })
+      .catch(() => setReportPhase('error'))
+  }, [runId])
+
+  useEffect(() => {
+    if (initialReport || startedRef.current) return
+    startedRef.current = true
+    loadReport()
+  }, [initialReport, loadReport])
+
+  const retryReport = useCallback(() => {
+    setReportPhase('loading')
+    loadReport()
+  }, [loadReport])
+
   const headingRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
-    headingRef.current?.focus()
-  }, [])
+    if (view === 'scores') headingRef.current?.focus()
+  }, [view])
 
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const copyTimer = useRef<number | null>(null)
@@ -79,6 +114,31 @@ export function ResultsScene({ mode, knightName, runId, score }: ResultsScenePro
   }, [permalink])
 
   const copyLabel = copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy link'
+
+  const reportStatusLine =
+    reportPhase === 'loading'
+      ? 'The scribe is writing your report…'
+      : reportPhase === 'error'
+        ? 'The report could not be written yet.'
+        : report?.status === 'ready'
+          ? 'Your QWEN-written report is ready.'
+          : report
+            ? 'Your report is ready — written from your scores, the AI scribe was offline.'
+            : ''
+
+  if (view === 'report') {
+    return (
+      <section className="ark-scene ark-results-scene" aria-labelledby="ark-report-heading">
+        <ReportPanel
+          mode={mode}
+          state={report}
+          phase={reportPhase}
+          onRetry={retryReport}
+          onBack={() => setView('scores')}
+        />
+      </section>
+    )
+  }
 
   return (
     <section className="ark-scene ark-results-scene" aria-labelledby="ark-results-heading">
@@ -118,9 +178,14 @@ export function ResultsScene({ mode, knightName, runId, score }: ResultsScenePro
           })}
         </ul>
 
-        <p className="ark-results-report">
-          Your QWEN-written debrief — strengths and next steps — arrives with the next milestone.
-        </p>
+        <div className="ark-results-report-row">
+          <p className="ark-results-report-status" aria-live="polite">
+            {reportStatusLine}
+          </p>
+          <button type="button" className="ark-btn ark-btn--compact" onClick={() => setView('report')}>
+            Read the full report
+          </button>
+        </div>
 
         <div className="ark-results-permalink-row">
           <code className="ark-results-permalink-text" ref={permalinkRef}>

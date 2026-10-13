@@ -57,7 +57,13 @@ export default async function ResultPage({ params }: ResultPageProps) {
   return (
     <Stage accentColor={mode.theme.accentColor} fontFamily={fontStack}>
       <div className="ark-shell">
-        <ResultsScene mode={mode} knightName={snapshot.knightName} runId={snapshot.runId} score={score} />
+        <ResultsScene
+          mode={mode}
+          knightName={snapshot.knightName}
+          runId={snapshot.runId}
+          score={score}
+          initialReport={snapshot.report}
+        />
       </div>
     </Stage>
   )

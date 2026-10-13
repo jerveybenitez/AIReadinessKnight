@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 
 import { Stage } from './components/Stage'
 import { canGoBack, initialState, reduce, type GameState, type GameEvent } from './machine'
+import type { ReportState } from './report'
 import { clearRunId, createRun, fetchRun, readRunId, saveRunId, submitAnswer } from './run-client'
 import { scoreRun } from './scoring'
 import { IntakeScene, type IntakeFields } from './scenes/Intake'
@@ -27,6 +28,8 @@ import './game.css'
 interface RunMeta {
   runId: string
   knightName: string
+  /** Cached report from the resume snapshot; the results screen generates one when null (M7). */
+  report: ReportState | null
 }
 
 type Phase = { name: 'resuming' } | { name: 'ready' } | { name: 'resume-error'; message: string }
@@ -89,7 +92,7 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
           const answers: AnswerMap = {}
           for (const answer of snapshot.answers) answers[answer.questionId] = answer
           saveRunId(mode.slug, snapshot.runId) // an adopted permalink sticks for the session
-          setRun({ runId: snapshot.runId, knightName: snapshot.knightName })
+          setRun({ runId: snapshot.runId, knightName: snapshot.knightName, report: snapshot.report })
           dispatch({ type: 'RESUME', answers })
         }
         setPhase({ name: 'ready' })
@@ -110,7 +113,7 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
     async (fields: IntakeFields) => {
       const { runId } = await createRun({ modeSlug: mode.slug, ...fields })
       saveRunId(mode.slug, runId)
-      setRun({ runId, knightName: fields.knightName })
+      setRun({ runId, knightName: fields.knightName, report: null })
       dispatch({ type: 'INTAKE_DONE' })
     },
     [mode.slug],
@@ -220,6 +223,7 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
             knightName={run?.knightName ?? 'knight'}
             runId={run?.runId ?? ''}
             score={scoreRun(sections, state.answers)}
+            initialReport={run?.report ?? null}
           />
         )
     }

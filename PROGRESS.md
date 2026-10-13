@@ -17,7 +17,7 @@ Last updated: 2026-10-13
 | M4 | Archery section | **complete** | question screen is fully art-driven (targets/bubble/attack choreography); verified live end to end in a real browser + e2e (see log below) |
 | M5 | Boxing + swordsmanship | **complete** | sections 2/3 are prop-driven reuse of the M4 reference; band-driven section-end animation (text + asset slot + knight pose); verified live with all 15 questions and all three bands (see log below) |
 | M6 | Scoring + results | **complete** | results screen (final knight per band, overall + per-section breakdown), permanent shareable permalink `/result/<runId>` on the unguessable run id, `?run=` adoption for unfinished runs; verified live + e2e incl. a fresh-browser permalink reopen (see log below) |
-| M7 | QWEN report | pending | |
+| M7 | QWEN report | **complete** | server-side generation (env-driven, `QWEN_DISABLE_THINKING` for the hybrid reasoning model), schema-validated structured JSON, deterministic per-band fallback, cached once per run on the submission; verified live against the hosted endpoint (tailored report in 6.6s) **and** with the endpoint dead (complete template report) — see log below |
 | M8 | Default art set | pending | needs user sample check before full set |
 | M9 | Re-skin proof (`electric`) | pending | |
 | M10 | Hardening | pending | |
@@ -234,6 +234,64 @@ results block of `game.css`; tests: `scoring.int.spec.ts` +6, `frontend.e2e.spec
   unknown runId → 404, one shared `ResultsScene` for in-game and permalink.
 - `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **34 passed** ✓ · `pnpm test:e2e`
   **11 passed** ✓ (PW_CHANNEL=chrome per the M4 known issue; chromium-1208 download still pending).
+
+## M7 verification log (2026-10-13)
+
+Files added: `src/game/report.ts` (pure — `validateReport` schema gate: clamps 3 strengths / 3 gaps
+/ 5 next steps, empty strengths allowed, text caps, drops unknown fields; `fallbackReport` with
+deterministic per-final-band copy, weakest-section names injected, gaps weakest-first),
+`src/game/report-server.ts` (server-only — `qwenConfig` env reader, `reportInputs` one scoring pass
+feeding prompt + fallback + the cached `scores` field, `buildSystemMessage`/`buildUserMessage`,
+`extractJsonObject` fence-strip + first-`{`-to-last-`}`, `parseReportContent`, `requestQwenReport`
+with `AbortSignal.timeout(25s)` + retry-once on 429/5xx/network/timeout, injectable `fetchImpl`,
+`storedReportOf` re-validating stored JSON, in-flight map, `generateReportForRun` cache-first),
+`src/game/scenes/ReportPanel.tsx` (presentational report view), `tests/int/report.int.spec.ts`
+(37 tests). Extended: `endpoints/runs.ts` (`reportEndpoint` — 400 for missing runId/incomplete run,
+404 unknown, then generate + narrow `{runId, status, report}`), `Submissions.ts` (endpoint
+registered), `run-server.ts` (`snapshotOf` now carries `report`), `types.ts` (`RunSnapshot.report`,
+`ReportAck`), `run-client.ts` (`requestReport`), `Results.tsx` (view toggle, auto-generation on
+results mount with a `startedRef` guard so StrictMode's double-mount cannot discard the single
+fetch, report status line + retry), `GameShell.tsx` (`RunMeta.report` → `initialReport`),
+`result/[runId]/page.tsx` (same), results/report block of `game.css`, `frontend.e2e.spec.ts`
+(full-playthrough test now opens the report, asserts provenance + ≥3 steps + exactly one
+`POST /report`, and proves the fresh-context permalink reuses the cached report with **zero**
+further POSTs).
+
+- **Hybrid-reasoning discovery (important for whoever swaps models)**: the hosted `qwen3.8-flash`
+  is a thinking model — with thinking on, a report-sized prompt burned ~900 hidden reasoning tokens
+  and took 23s (right at the 25s timeout; under the app's fuller system prompt it timed out twice →
+  fallback in 51s). With `enable_thinking:false` the same request lands in 8s. The knob is
+  **env-driven** (`QWEN_DISABLE_THINKING=true` in `.env`, parsed by `qwenConfig`) so no
+  vendor-specific parameter is baked into source; drop the line for a plain OpenAI-compatible
+  server. .env was edited (gitignored — never committed).
+- **Live path (hosted endpoint up), real browser**: full 15-question playthrough in the browser →
+  "Your QWEN-written report is ready." · report opens with provenance "Written by QWEN from your
+  answers." — tailored content verified: strengths cite the actually-strong answer pattern, gaps
+  mirror the weak section (even quoting "the 0.0 score in governance"), next steps reach into
+  shop-floor/manufacturing specifics. Generation via the app endpoint measured **6.5–8.6s**; a
+  legacy M5-era run viewed in the browser generated its report on first view too.
+- **Fallback path (endpoint dead), real browser + curl**: with `QWEN_BASE_URL` pointed at a dead
+  port the same flows produce "Your report is ready — written from your scores, the AI scribe was
+  offline." in ~1s; template report reads as a real report (company-named headline, band-specific
+  summary + steps, weakest sections named). Server log shows exactly one
+  `[report] QWEN unavailable — using the template report (network-error)` — the reason only, no
+  answers, no company name.
+- **Caching (refresh must never re-bill)**: second `POST /report` on a cached run returned in 89ms
+  and logged no second warning; the e2e proves it at the network layer — one generation in the
+  playthrough context, `0` in the fresh permalink context; the permalink status line shows
+  "ready" immediately from the stored snapshot.
+- **Gates**: incomplete run → 400 "The report can only be written for a completed run" (10ms, no
+  QWEN call); unknown runId → 404 (9ms). Combined with the unguessable runId + once-per-run cache,
+  the endpoint is not a free text-generation API.
+- **Secret hygiene**: `NEXT_PUBLIC` appears nowhere in `src/`; production build (`pnpm build` ✓)
+  then grepped — the key value, `sk-ws-` prefix, the API host and `QWEN_API_KEY` all absent from
+  `.next/static` (client bundles) and the key value absent from `.next/server` too (runtime env
+  read, never inlined).
+- **Test-state discipline**: e2e runs with the endpoint dead (`QWEN_BASE_URL=http://127.0.0.1:9/v1
+  pnpm dev` — process env wins over `.env` for @next/env; the int suite never touches the network,
+  stubs + a dead port only). A live-endpoint e2e run would bill real calls; don't.
+- `pnpm lint` 0 errors ✓ · `tsc --noEmit` ✓ · `pnpm test:int` **71 passed** ✓ (37 new) ·
+  `pnpm test:e2e` **11 passed** ✓ on the frozen code.
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 

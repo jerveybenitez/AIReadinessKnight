@@ -1,5 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
 
+import { storedReportOf } from './report-server'
 import type { RunSnapshot } from './types'
 import type { Mode, Submission } from '@/payload-types'
 
@@ -57,6 +58,7 @@ export function snapshotOf(run: Submission, modeSlug: string): RunSnapshot {
     answerCount: answers.length,
     complete: answers.length >= 15,
     answers,
+    report: storedReportOf(run),
   }
 }
 

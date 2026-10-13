@@ -87,10 +87,21 @@ test.describe('Frontend — game shell', () => {
     await expect(page.locator('.ark-stage')).toBeHidden()
   })
 
-  test('a full playthrough scores correctly and the permalink reopens the result in a fresh browser', async ({
+  test('a full playthrough scores correctly, writes the report once, and the permalink reopens the result in a fresh browser', async ({
     page,
     browser,
   }) => {
+    test.setTimeout(120_000)
+
+    // Every POST to the report endpoint — the cache contract says exactly one per run, and the
+    // fresh permalink context below must contribute zero (it reads the cached report).
+    const reportPosts: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && /\/runs\/[^/]+\/report$/.test(request.url())) {
+        reportPosts.push(request.url())
+      }
+    })
+
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('http://localhost:3000/default')
 
@@ -138,14 +149,44 @@ test.describe('Frontend — game shell', () => {
     await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible()
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(url)
 
+    // The report generates in the background on results mount (QWEN or template fallback —
+    // both are complete reports). Open it and check the contract: structured content, a
+    // provenance line, and exactly one generation for the run.
+    await page.getByRole('button', { name: 'Read the full report' }).click()
+    await expect(page.getByRole('heading', { name: 'Readiness report' })).toBeVisible()
+    const headline = page.locator('.ark-report-headline')
+    await expect(headline).toBeVisible({ timeout: 45_000 })
+    await expect(page.locator('.ark-report-provenance')).toHaveText(
+      /Written by QWEN from your answers\.|Written from your scores — the AI scribe was offline\./,
+    )
+    // The schema guarantees 3–5 prioritised steps; the count itself is copy, not contract.
+    expect(await page.locator('.ark-report-steps li').count()).toBeGreaterThanOrEqual(3)
+    expect(reportPosts).toHaveLength(1)
+    const headlineText = ((await headline.textContent()) ?? '').trim()
+
+    // Back to the scores view — same scene, both views reachable.
+    await page.getByRole('button', { name: '← Back to scores' }).click()
+    await expect(page.getByRole('heading', { name: 'The training is complete, Sir Scoresalot' })).toBeVisible()
+
     const fresh = await browser.newContext()
     const freshPage = await fresh.newPage()
+    const freshReportPosts: string[] = []
+    freshPage.on('request', (request) => {
+      if (request.method() === 'POST' && /\/runs\/[^/]+\/report$/.test(request.url())) {
+        freshReportPosts.push(request.url())
+      }
+    })
     await freshPage.goto(url)
 
     await expect(freshPage.getByRole('heading', { level: 2 })).toContainText('The training is complete, Sir Scoresalot')
     await expect(freshPage.getByText('Overall score: 2.0 / 4 · Average')).toBeVisible()
     await expect(freshPage.getByRole('listitem').filter({ hasText: 'AI Talent' })).toContainText('1-2.9')
     await expect(freshPage.getByRole('listitem').filter({ hasText: 'AI Use-Case' })).toContainText('3-4')
+
+    // The cached report reopens identically — and costs nothing: no new generation request.
+    await freshPage.getByRole('button', { name: 'Read the full report' }).click()
+    await expect(freshPage.locator('.ark-report-headline')).toHaveText(headlineText)
+    expect(freshReportPosts).toHaveLength(0)
     await fresh.close()
   })
 

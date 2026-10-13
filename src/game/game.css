@@ -753,11 +753,151 @@
   letter-spacing: 0.05em;
 }
 
-.ark-results-report {
+.ark-results-report-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.ark-results-report-status {
   margin: 0;
   font-size: 14px;
   opacity: 0.7;
   line-height: 1.4;
+  text-align: left;
+}
+
+/* ---- readiness report (M7) ---- */
+
+.ark-report-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 820px;
+  box-sizing: border-box;
+  padding: 24px 44px;
+  background: var(--ark-panel);
+  border: 1px solid var(--ark-line);
+  border-radius: 18px;
+  text-align: center;
+}
+
+.ark-report-card h2 {
+  font-size: 26px;
+  margin: 0;
+}
+
+.ark-report-provenance {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.ark-report-loading {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.ark-report-error {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ark-report-error p {
+  margin: 0;
+}
+
+.ark-report-scroll {
+  width: 100%;
+  max-height: 396px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 4px 14px 4px 6px;
+  border-radius: 10px;
+  text-align: left;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ark-line) transparent;
+}
+
+.ark-report-scroll:focus-visible {
+  outline: 2px solid var(--ark-accent);
+  outline-offset: 2px;
+}
+
+.ark-report-headline {
+  margin: 8px 0 0;
+  font-size: 19px;
+  color: var(--ark-accent);
+  line-height: 1.35;
+}
+
+.ark-report-summary {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+  opacity: 0.92;
+}
+
+.ark-report-block h3 {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ark-accent);
+}
+
+.ark-report-block ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.ark-report-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ark-report-steps li {
+  border: 1px solid var(--ark-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(9, 9, 18, 0.6);
+}
+
+.ark-report-steps li strong {
+  font-size: 15px;
+}
+
+.ark-report-steps li p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+.ark-report-horizon {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--ark-accent);
+  color: var(--ark-accent);
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-right: 8px;
 }
 
 .ark-results-permalink-row {

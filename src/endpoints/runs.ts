@@ -1,6 +1,7 @@
 import type { Endpoint, PayloadRequest } from 'payload'
 
-import type { Answer, AnswerAck } from '../game/types'
+import type { Answer, AnswerAck, ReportAck } from '../game/types'
+import { generateReportForRun, requiredAnswerCount } from '../game/report-server'
 import { findRun, loadRunSnapshot } from '../game/run-server'
 import type { Mode } from '@/payload-types'
 
@@ -160,6 +161,36 @@ export const answerEndpoint: Endpoint = {
       answerCount: answers.length,
       complete: answers.length >= totalQuestions,
     }
+    return Response.json(ack)
+  },
+}
+
+/**
+ * POST /api/submissions/runs/:runId/report — the readiness report, generated at most once per run
+ * and cached on the submission. Complete runs only; concurrent calls join one generation.
+ */
+export const reportEndpoint: Endpoint = {
+  path: '/runs/:runId/report',
+  method: 'post',
+  handler: async (req) => {
+    const runId = typeof req.routeParams?.runId === 'string' ? req.routeParams.runId : ''
+    if (!runId) return error('Missing run id', 400)
+
+    const run = await findRun(req.payload, runId, req)
+    if (!run) return error('Run not found', 404)
+    if ((run.answers ?? []).length < requiredAnswerCount) {
+      return error('The report can only be written for a completed run', 400)
+    }
+
+    const mode = (await req.payload.findByID({
+      collection: 'modes',
+      id: typeof run.mode === 'number' ? run.mode : Number((run.mode as Mode).id),
+      depth: 0,
+      req,
+    })) as Mode
+
+    const generated = await generateReportForRun(req.payload, run, mode, req)
+    const ack: ReportAck = { runId, status: generated.state.status, report: generated.state.report }
     return Response.json(ack)
   },
 }
