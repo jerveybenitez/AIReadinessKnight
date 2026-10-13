@@ -69,6 +69,8 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    modes: Mode;
+    submissions: Submission;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,13 +80,15 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    modes: ModesSelect<false> | ModesSelect<true>;
+    submissions: SubmissionsSelect<false> | SubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
   };
   db: {
-    defaultIDType: string;
+    defaultIDType: number;
   };
   fallbackLocale: null;
   globals: {};
@@ -122,7 +126,7 @@ export interface UserAuthOperations {
  * via the `definition` "users".
  */
 export interface User {
-  id: string;
+  id: number;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -130,6 +134,7 @@ export interface User {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   sessions?:
@@ -147,7 +152,7 @@ export interface User {
  * via the `definition` "media".
  */
 export interface Media {
-  id: string;
+  id: number;
   alt: string;
   updatedAt: string;
   createdAt: string;
@@ -162,11 +167,183 @@ export interface Media {
   focalY?: number | null;
 }
 /**
+ * A mode is a full re-skin of the game served at /<slug>. The "default" mode must always exist; every asset slot another mode leaves empty is inherited from it.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "modes".
+ */
+export interface Mode {
+  id: number;
+  title: string;
+  /**
+   * The URL segment: /<slug>. Shared result links do not depend on it, but renaming breaks bookmarks of the game page.
+   */
+  slug: string;
+  theme?: {
+    accentColor?: string | null;
+    fontFamily?: string | null;
+    bubbleSkin?: (number | null) | Media;
+    buttonSkin?: (number | null) | Media;
+  };
+  titleScreen?: {
+    background?: (number | null) | Media;
+    logo?: (number | null) | Media;
+    copy?: string | null;
+  };
+  /**
+   * Exactly three training sections. Questions and assets live per section.
+   */
+  sections?:
+    | {
+        /**
+         * Stable identity — stored answers and scores reference it. Never repurpose a key.
+         */
+        key: 'archery' | 'boxing' | 'swordsmanship';
+        name: string;
+        description?: string | null;
+        icon?: string | null;
+        assets?: {
+          background?: (number | null) | Media;
+          knight?: {
+            idle?: (number | null) | Media;
+            attack?: (number | null) | Media;
+            celebrate?: (number | null) | Media;
+            fail?: (number | null) | Media;
+          };
+          target?: {
+            idle?: (number | null) | Media;
+            hover?: (number | null) | Media;
+            hit?: (number | null) | Media;
+          };
+          projectile?: (number | null) | Media;
+          hitEffect?: (number | null) | Media;
+        };
+        /**
+         * One animation spec per score band — the text drives the creative, the asset is played at section end.
+         */
+        sectionAnimation?:
+          | {
+              band: '0-0.9' | '1-2.9' | '3-4';
+              text?: string | null;
+              asset?: (number | null) | Media;
+              id?: string | null;
+            }[]
+          | null;
+        questions?:
+          | {
+              /**
+               * Stable id — every stored answer references it. Never change once submissions exist.
+               */
+              id: string;
+              text: string;
+              /**
+               * Five options, score 0 → 4 top to bottom — rendered left to right as five targets.
+               */
+              options?:
+                | {
+                    text: string;
+                    score: number;
+                    id?: string | null;
+                  }[]
+                | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  results?: {
+    background?: (number | null) | Media;
+    finalKnight?: {
+      low_average?: (number | null) | Media;
+      average?: (number | null) | Media;
+      high_average?: (number | null) | Media;
+    };
+  };
+  ai?: {
+    /**
+     * System prompt for the end-of-game report. Mode-specific: reword to match the client brand. The output schema is enforced by the app.
+     */
+    systemPrompt?: string | null;
+    /**
+     * Tone guidance, e.g. "direct and practical".
+     */
+    tone?: string | null;
+    /**
+     * Extra client-specific guidance folded into the prompt.
+     */
+    guidance?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Player runs. Confidential: readable only by authenticated admins. The public game reads and writes runs exclusively through run-id-keyed server endpoints.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submissions".
+ */
+export interface Submission {
+  id: number;
+  /**
+   * Unguessable public id (nanoid). The results permalink /results/<runId> is the access token — never a sequential number.
+   */
+  runId: string;
+  mode: number | Mode;
+  knightName: string;
+  companyName: string;
+  industry?: string | null;
+  /**
+   * One entry per answered question, written as the player answers.
+   */
+  answers?:
+    | {
+        questionId: string;
+        sectionKey: 'archery' | 'boxing' | 'swordsmanship';
+        optionIndex: number;
+        score: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Computed server-side from the answers (see src/game/scoring.ts).
+   */
+  scores?: {
+    sections?:
+      | {
+          key?: ('archery' | 'boxing' | 'swordsmanship') | null;
+          mean?: number | null;
+          band?: ('0-0.9' | '1-2.9' | '3-4') | null;
+          id?: string | null;
+        }[]
+      | null;
+    finalMean?: number | null;
+    finalBand?: ('low_average' | 'average' | 'high_average') | null;
+  };
+  /**
+   * QWEN report, generated once per run and cached here.
+   */
+  report?: {
+    status?: ('pending' | 'ready' | 'fallback') | null;
+    data?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    generatedAt?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
-  id: string;
+  id: number;
   key: string;
   data:
     | {
@@ -183,20 +360,28 @@ export interface PayloadKv {
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
-  id: string;
+  id: number;
   document?:
     | ({
         relationTo: 'users';
-        value: string | User;
+        value: number | User;
       } | null)
     | ({
         relationTo: 'media';
-        value: string | Media;
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'modes';
+        value: number | Mode;
+      } | null)
+    | ({
+        relationTo: 'submissions';
+        value: number | Submission;
       } | null);
   globalSlug?: string | null;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   updatedAt: string;
   createdAt: string;
@@ -206,10 +391,10 @@ export interface PayloadLockedDocument {
  * via the `definition` "payload-preferences".
  */
 export interface PayloadPreference {
-  id: string;
+  id: number;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   key?: string | null;
   value?:
@@ -229,7 +414,7 @@ export interface PayloadPreference {
  * via the `definition` "payload-migrations".
  */
 export interface PayloadMigration {
-  id: string;
+  id: number;
   name?: string | null;
   batch?: number | null;
   updatedAt: string;
@@ -247,6 +432,7 @@ export interface UsersSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
+  resetPasswordRequestedAt?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:
@@ -274,6 +460,145 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "modes_select".
+ */
+export interface ModesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  theme?:
+    | T
+    | {
+        accentColor?: T;
+        fontFamily?: T;
+        bubbleSkin?: T;
+        buttonSkin?: T;
+      };
+  titleScreen?:
+    | T
+    | {
+        background?: T;
+        logo?: T;
+        copy?: T;
+      };
+  sections?:
+    | T
+    | {
+        key?: T;
+        name?: T;
+        description?: T;
+        icon?: T;
+        assets?:
+          | T
+          | {
+              background?: T;
+              knight?:
+                | T
+                | {
+                    idle?: T;
+                    attack?: T;
+                    celebrate?: T;
+                    fail?: T;
+                  };
+              target?:
+                | T
+                | {
+                    idle?: T;
+                    hover?: T;
+                    hit?: T;
+                  };
+              projectile?: T;
+              hitEffect?: T;
+            };
+        sectionAnimation?:
+          | T
+          | {
+              band?: T;
+              text?: T;
+              asset?: T;
+              id?: T;
+            };
+        questions?:
+          | T
+          | {
+              id?: T;
+              text?: T;
+              options?:
+                | T
+                | {
+                    text?: T;
+                    score?: T;
+                    id?: T;
+                  };
+            };
+        id?: T;
+      };
+  results?:
+    | T
+    | {
+        background?: T;
+        finalKnight?:
+          | T
+          | {
+              low_average?: T;
+              average?: T;
+              high_average?: T;
+            };
+      };
+  ai?:
+    | T
+    | {
+        systemPrompt?: T;
+        tone?: T;
+        guidance?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submissions_select".
+ */
+export interface SubmissionsSelect<T extends boolean = true> {
+  runId?: T;
+  mode?: T;
+  knightName?: T;
+  companyName?: T;
+  industry?: T;
+  answers?:
+    | T
+    | {
+        questionId?: T;
+        sectionKey?: T;
+        optionIndex?: T;
+        score?: T;
+        id?: T;
+      };
+  scores?:
+    | T
+    | {
+        sections?:
+          | T
+          | {
+              key?: T;
+              mean?: T;
+              band?: T;
+              id?: T;
+            };
+        finalMean?: T;
+        finalBand?: T;
+      };
+  report?:
+    | T
+    | {
+        status?: T;
+        data?: T;
+        generatedAt?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -1,0 +1,201 @@
+# PROGRESS — AI-Ready Knight
+
+> Build brief: `QODER.md`. Original human brief: `Qoder.txt` (wins on conflict).
+> Skills in `.claude/skills/` — read the relevant one before touching that area.
+> This file is how work survives a session boundary: assume you lose the chat and write for your
+> future self. Update it at the end of every milestone.
+
+Last updated: 2026-10-13
+
+## Milestone status
+
+| # | Milestone | Status | Notes |
+| --- | --- | --- | --- |
+| M1 | Foundations | **complete** | DB ✓ · dev server ✓ · `/admin` 200 ✓ · first admin user created via UI ✓ · plan below |
+| M2 | Backend model | **complete** | `modes` + `submissions` collections, explicit access control, idempotent seed of `default`; verified via /admin UI, REST API and psql (see log below) |
+| M3 | Game shell | pending | |
+| M4 | Archery section | pending | reference implementation |
+| M5 | Boxing + swordsmanship | pending | |
+| M6 | Scoring + results | pending | |
+| M7 | QWEN report | pending | |
+| M8 | Default art set | pending | needs user sample check before full set |
+| M9 | Re-skin proof (`electric`) | pending | |
+| M10 | Hardening | pending | |
+
+## M1 verification log (2026-10-13)
+
+- `pnpm dev` starts (Turbopack, ~21s first ready). First `/admin` request took 2min (cold compile +
+  Postgres schema push), subsequent requests ~20s / cached.
+- `/admin` → HTTP 200, redirects to create-first-user when no users exist. Payload pushed schema:
+  tables `users`, `users_sessions`, `media`, `payload_kv`, `payload_locked_documents`,
+  `payload_preferences`, `payload_migrations` all present in Postgres.
+- First admin **created through the real UI form** (not a script): email
+  `admin@ai-ready-knight.local` — password was set during M1 and shared in the session chat; it is a
+  local-dev-only credential. To reset: `pnpm payload run <script>` with a `users` update, or delete
+  the row and reload `/admin` (a fresh one will be created). Row verified in DB:
+  `select id,email,created_at from users` → `1 | admin@ai-ready-knight.local`.
+- **Scaffold repairs made in M1** (needed to satisfy "run `pnpm lint` every milestone"):
+  - `eslint.config.mjs` rewritten: the scaffold used `FlatCompat` from `@eslint/eslintrc`, which
+    isn't in `package.json`; after installing it, it still crashed because `eslint-config-next@16`
+    is flat-config-native ("property 'react' closes the circle" circular-config error). Now it
+    imports `eslint-config-next/core-web-vitals` + `/typescript` directly. Custom rules and ignores
+    preserved. `@eslint/eslintrc` not needed and not kept.
+  - `pnpm lint` → 0 errors, 5 warnings (all pre-existing in scaffold test files).
+  - `pnpm test:int` → 1 passed. `pnpm test:e2e` → needs Playwright chromium: installed during M1
+    (`pnpm exec playwright install chromium`); re-run pending. Scaffold `frontend.e2e.spec.ts`
+    asserts the placeholder homepage ("Payload Blank Template") — it must be **updated in M3** when
+    the real frontend replaces `src/app/(frontend)/page.tsx`.
+
+## M2 verification log (2026-10-13)
+
+Files added: `src/game/constants.ts` (canonical keys), `src/collections/Modes.ts`,
+`src/collections/Submissions.ts`, `src/seed/default-mode.ts`, `src/seed/run.ts`; `payload.config.ts`
+registers the two collections; `package.json` gained `pnpm seed`.
+
+- **Key discovery**: Payload 3's default access is `Boolean(user)` (authenticated-only), verified in
+  `node_modules/payload/dist/auth/defaultAccess.js` — not "public by default". So only `modes` and
+  `media` need an explicit public `read: () => true`; everything else is locked unless opened.
+- **Constraints enforced in config**: sections array `minRows: 3, maxRows: 3` + validate (keys
+  distinct and complete archery/boxing/swordsmanship); `sectionAnimation` rows validate the three
+  band keys `0-0.9 / 1-2.9 / 3-4`; questions `minRows/maxRows: 5` + unique-id validate; options
+  `minRows/maxRows: 5` + validate scores must equal `[0,1,2,3,4]` in order; slug regex + reserved
+  list (`admin`, `api`, `_next`).
+- **`submissions`**: create/delete disabled entirely (`() => false`) — all player traffic goes
+  through future runId-keyed endpoints (M3/M6); read/update/delete authenticated-only. No public
+  read, verified below.
+- Seed ran: 1 mode, 3 sections, 15 questions, 75 options in Postgres (checked via psql counts);
+  re-run is a no-op ("already exists — admin edits are never overwritten").
+- REST verification (anonymous): `GET /api/modes` → **200**; `GET /api/submissions` → **403**;
+  `POST /api/submissions` → **403**.
+- Admin UI: `/admin/collections/modes/1` renders all groups; section 01 shows key `archery`,
+  name "AI Use-Case & Business Readiness", 3 band animations, 5 questions.
+- `pnpm generate:types` ✓, `tsc --noEmit` exit 0 ✓, `pnpm lint` 0 errors ✓, `pnpm test:int` ✓.
+- `pnpm test:e2e` still blocked on the Playwright chromium download (in progress at end of M2);
+  scaffold frontend e2e will need rewriting in M3 anyway.
+
+## Plan (approved 2026-10-13; historical — see Decisions)
+
+### Approach — the decisions that shape everything
+
+**Rendering: DOM + CSS on a fixed 1280×720 stage** (canvas rejected). Reasons: the accessibility
+baseline requires real focusable controls (`<button>` per target, "speech bubble is not the only
+way to read an option") — canvas would force a parallel ARIA layer for every element; every sprite
+is a CMS upload, which maps directly to `<img src>`; the whole stage is scaled to fit via one CSS
+`transform: scale()`, so sprite alignment survives any viewport. Animation complexity here (sprite
+swaps, one projectile travel, recoil) is low; canvas buys nothing. → ADR in M3.
+
+**Animation: sprite-frame swaps + CSS transitions**, all playback guarded by a `Promise` that races
+a timeout, so a dropped frame or backgrounded tab can never strand the player (skill failure mode
+#3). `prefers-reduced-motion` collapses every animation to an instant state change.
+
+**State: one pure scene machine** (`src/game/machine.ts`) + run state in `sessionStorage` (runId
+only) mirrored server-side. Answers are written server-side per answer, keyed by runId, replace-on
+-replay (`Record<questionId, Answer>`, never append). Refresh mid-run re-attaches via sessionStorage.
+
+**Routing:** `src/app/(frontend)/[mode]/page.tsx` loads the mode server-side; unknown slug →
+`notFound()`. The `(payload)` route group owns `/admin` and `/api` — verifying `[mode]` cannot
+shadow them is an explicit M3 acceptance check.
+
+**Fallback resolution:** one server-side resolver loads `mode` + `default` and deep-merges every
+empty slot (assets and text) onto `default`, then to dev placeholder descriptors. Components never
+branch on null. `default` must be complete before other modes are useful — it is the fallback source.
+
+**Player-facing writes go through dedicated Payload custom endpoints** keyed by the unguessable
+`runId` (create run, answer, generate report, fetch results). The `submissions` collection itself is
+closed: no public read ever; public REST create/update disabled so nothing can set `scores` or
+`report` from outside. The results endpoint returns a narrow projection (knight pose, scores, band,
+report) — never the raw document.
+
+**QWEN:** server-side only, env-driven (`QWEN_BASE_URL` / `QWEN_API_KEY` / `QWEN_MODEL`), OpenAI
+-compatible chat completions; deterministic template fallback built first and used on any failure
+(missing key, network, non-2xx, timeout, malformed/validation failure); report cached on the
+submission keyed by runId so a refresh never re-bills; system prompt/tone CMS-editable per mode.
+
+### Data model sketch
+
+```
+modes (collection)
+├── slug            unique, indexed, url-safe; reject 'admin' | 'api' | '_next'
+├── title
+├── theme           accent colour, fonts, bubble/button skin
+├── titleScreen     background, logo, copy
+├── sections[3]     minRows: 3, maxRows: 3 + validate keys {archery, boxing, swordsmanship} distinct
+│   ├── key, name, description, icon
+│   ├── assets      background · knight.{idle,attack,celebrate,fail} · target.{idle,hover,hit}
+│   │               · projectile · hitEffect            (all upload → media)
+│   ├── sectionAnimation[3]  band keys '0-0.9' | '1-2.9' | '3-4'  (text + asset) — verbatim
+│   └── questions[5]
+│       ├── id      stable, generated at seed, never regenerated
+│       ├── text
+│       └── options[5]  { text, score } — validate exactly 5, scores 0..4 ascending
+├── results         background · finalKnight.{low_average, average, high_average}
+└── ai              systemPrompt, tone
+
+submissions (collection) — confidential; admin read only, no public read
+├── runId           nanoid/uuid, unique, indexed      ← the access token for result links
+├── mode            relationship -> modes
+├── knightName, companyName, industry
+├── answers[]       { questionId, sectionKey, optionIndex, score } — one per question id
+├── scores          per-section {mean, band} + final {mean, band}   (computed server-side via scoring.ts)
+├── report          { status: pending|ready|fallback, data, generatedAt } — cached
+└── timestamps
+```
+
+Scoring lives only in `src/game/scoring.ts` (pure, unit-tested, both band sets, exact §4 thresholds,
+no rounding before banding). Imported by results screen, section-end scene and QWEN prompt builder.
+
+### Milestones
+
+Exactly the M1–M10 list from `QODER.md` §8; tracked as tasks in the current session. Order:
+M1 plan → approval → M2 backend → M3 shell → M4 archery (reference) → M5 boxing/sword → M6 scoring
+/results → M7 QWEN → M8 art (sample check first) → M9 electric re-skin → M10 hardening.
+
+## Ground truth verified (2026-10-13)
+
+- Node v24.16.0, pnpm 12.9.1 (package.json engines say pnpm ^9||^10||^11 — warning only, works).
+- Local PostgreSQL 18.4 on 127.0.0.1:5432, database `ai_ready_knight` exists and `DATABASE_URL`
+  from `.env` connects (verified with psql).
+- `.env` is gitignored ✓ (contains real values — never commit).
+- `docker-compose.yml` is the stale mongo scaffold with postgres commented out — **not used**; repo
+  runs against the local Postgres. Clean up during M10.
+- `ai_readiness_questions.json` read: 3 sections (usecase/archery, talent/boxing, execution
+  /swordsmanship), 5 questions × 5 options each, scores 0–4, section_animation keys `0-0.9`,
+  `1-2.9`, `3-4`, summary_pose bands high_average/average/low_average.
+- Wireframes viewed (archery set): 5 targets top row evenly spaced; hover → wide speech bubble with
+  tail pointing at hovered target; click → arrow sticks into chosen target, bubble persists during
+  the action.
+- Scaffold state confirmed: `payload.config.ts` = Postgres adapter + Lexical + Users/Media only;
+  `(payload)` routes untouched; frontend placeholder page to be replaced; `src/app/my-route/` is
+  unused scaffold (remove during M3).
+
+## ⚠ Flagged conflict — QWEN endpoint (resolved: pending user answer)
+
+`QODER.md` §5/§10 say: "No hosted credentials yet… default to a localhost endpoint… the endpoint
+will usually not be running during development." That no longer matches reality: `.env` now
+contains **working hosted Aliyun DashScope credentials** (`QWEN_API_KEY` +
+`QWEN_OPEN_AI_ENDPOINT=https://…aliyuncs.com/compatible-mode/v1`), and a read-only `/models` probe
+returned HTTP 200 with available models (qwen3.8-flash, qwen3.8-max-0902, glm-5.3, deepseek-v4.1
+-flash, …). This matches `Qoder.txt`: "for the AI tools, we are going to use QWEN, i will supply
+all the details in the .env file" — and `Qoder.txt` wins on conflict.
+
+Proposed resolution (asked 2026-10-13):
+- Keep the code fully env-driven and vendor-free (`QWEN_BASE_URL`, `QWEN_API_KEY`, `QWEN_MODEL`).
+- Keep `.env.example` defaulted to localhost (per `QODER.md`), but wire the real `.env` to the
+  hosted compatible-mode endpoint so the live path is testable, and pick a model (env-switchable).
+- Build the deterministic fallback **first** and keep it as the always-available degradation path —
+  required for resilience regardless of where the endpoint lives.
+
+## Decisions taken (2026-10-13)
+
+- **Plan approved by user** — start M2 with the plan above unchanged.
+- **QWEN conflict resolved**: use the hosted endpoint already in `.env` (env-driven code, vendor-free
+  source), keep the deterministic fallback as the always-available path. `.env` gained
+  `QWEN_BASE_URL` (existing compatible-mode URL) and `QWEN_MODEL=qwen3.8-flash` (chosen by user;
+  env-switchable to `qwen3.8-max-0902`, `glm-5.3`, …). `.env.example` keeps localhost defaults per
+  QODER.md.
+- Rendering/state/persistence/fallback/scoring/QWEN approaches per the plan section.
+
+## Open questions (resolved 2026-10-13)
+
+1. QWEN wiring — resolved: hosted endpoint now (above).
+2. Plan approval — resolved: approved; M2 started.
