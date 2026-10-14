@@ -239,6 +239,24 @@ The contract, all of it non-negotiable:
 - `prefers-reduced-motion` is not a mute signal and must not be treated as one — but anything that
   pulses or throbs in time with audio follows it like any other animation.
 
+### 3.8 Loading and asset weight
+
+Added 2026-10-14; built in M14. The player waits once, at the start, on a loading screen — never
+mid-run, and never while watching a background paint in behind the targets.
+
+- **Assets are delivered compressed.** Source art stays as authored in `art/`; what the browser
+  receives is a web-delivery encode. A 1280×720 game does not ship multi-megabyte PNG backgrounds.
+- **The first scene is preloaded behind a loading screen**; later sections are prefetched *during*
+  play, so no scene transition ever waits on the network. The player is in section 1 for minutes —
+  that is when sections 2 and 3 arrive.
+- **Loading is bounded and escapable.** A slow or dead asset degrades to the game starting anyway,
+  exactly like the QWEN (§5) and audio (§3.7) fallbacks. A loading screen that can trap a player
+  forever is worse than no loading screen.
+- **Progress is honest.** If a count is shown, it reflects real completed requests. Never a timed
+  fake bar.
+- The loading screen follows §3.6 like any other scene: landscape, keyboard-safe, reduced-motion
+  respected, and it announces itself to assistive tech rather than being a silent blank stage.
+
 ---
 
 ## 4. Scoring — settled, implement exactly this
@@ -569,6 +587,71 @@ all §8 gates are green.
 *Play it before calling it done* — this is a milestone where "the tests pass" is especially far
 from "it sounds right". Report what you actually heard.
 
+**M14 — Asset weight and the loading screen**
+The game visibly streams its art in during play. A loading screen is part of the answer but not the
+cause: **the assets are enormous.** Measured 2026-10-14, before any work:
+
+```
+art/            64 MB total          art/default/   25 MB
+120 PNGs        art/electric/  22 MB  art/default16/ 18 MB
+
+largest:  default/title/background@2x.png        5.14 MB
+          default/boxing/background@2x.png       4.28 MB
+          default/swordsmanship/background@2x    3.90 MB
+          … every background is 3–5 MB
+```
+
+`src/collections/Media.ts` is a bare `upload: true` — **no `formats`, no `imageSizes`, no resize**
+— so Payload serves those originals byte-for-byte, and `Sprite.tsx` requests each one with a plain
+`<img>` at the moment its scene first renders. Roughly 20 MB of a mode's 25 MB is backgrounds.
+Preloading alone would just move the same 25 MB in front of the player and make them watch it.
+
+Do these in order; each one makes the next cheaper.
+
+**(a) Make the assets small.** Re-encode for delivery — WebP (or AVIF) at quality ~80 should take a
+4 MB background under 500 KB with no visible loss at 1280×720. This is a **re-encode, not a
+regeneration**: do not call an image generator, do not re-run `process-set.mjs`'s generation path,
+and do not disturb composition — M12's `GROUND_BASELINE_Y` contract and `check-ground.mjs` must
+still pass untouched afterwards. Two cautions: **`default16` is pixel art** and lossy encoding
+smears hard pixel edges — use lossless WebP or a quantised PNG for that set and verify by eye at
+1:1; and sprites have alpha, so whatever format you pick must preserve transparency. Decide where
+this belongs — a Payload `formats`/`imageSizes` config so uploads are converted on the way in, a
+step in the art pipeline, or both — and say why in an ADR. Unlike M13's audio, there is no missing
+tool here: `sharp` is already a dependency and encodes WebP and AVIF natively.
+
+M13's audio set (`public/audio`, 2.5 MB of WAV across 15 cues) is small beside the art, but it is
+static and shared, so fold it into the same cache-header decision in (b) and keep the music loops
+out of the blocking preload in (c) — a sound effect arriving a second late is invisible; a
+background arriving late is the whole complaint.
+
+**(b) Cache properly.** Media is immutable once uploaded; it should be served with long-lived
+cache headers so a replay, a back-navigation or a second visit costs nothing. Verify what Payload
+sends today before changing anything.
+
+**(c) Preload the first scene behind a loading screen** — title plus intake plus section 1, not all
+43 slots. Determinate progress from real request completions, a timeout that starts the game
+anyway, and the §3.8 rules.
+
+**(d) Prefetch the rest during play.** Sections 2 and 3 fetch while the player answers section 1;
+the results assets fetch during section 3. A scene transition must never block on a download. The
+existing scene machine knows exactly where the player is — use it rather than inventing a second
+notion of progress.
+
+**Re-wiring is part of the job, not an afterthought.** Changing encodings changes filenames, and
+`art:wire` finds-or-creates media by filename — so all three modes need re-wiring, `REPLACE=1`
+semantics need checking, and `verify-electric.mjs` / `verify-default16.mjs` assert on resolved
+URLs and will need updating. Re-run every mode's verification afterwards: a mode silently falling
+back to `default` because its re-encoded upload didn't bind is exactly the failure this invites.
+
+*Done when:* `art/`'s delivered weight per mode is reported before and after (state the real
+numbers), `/default`, `/electric` and `/default16` each start behind a loading screen that ends on
+real completion, **no background or sprite visibly pops in during a playthrough on a throttled
+connection** (test it throttled — on localhost everything looks instant and you will prove
+nothing), a stalled asset still lets the game start, `check-ground.mjs` and all three verify
+scripts pass, `default16` is confirmed un-smeared at 1:1, and all §8 gates are green.
+*Report the measured before/after sizes in `PROGRESS.md`* — this milestone's whole claim is a
+number.
+
 ### Verification you owe on every milestone
 
 Run `pnpm lint`, `pnpm test`, and actually open the app. Report failures with the real output —
@@ -606,6 +689,7 @@ them; if one turns out to be unbuildable, say so and stop rather than quietly su
 | 8 | **Targets never float** (added 2026-10-14). Everything that stands on the ground touches it, in every mode and section — a contract between the background's ground plane and the sprite's alpha bbox, with one measured baseline Y recorded in the `game-assets` skill. | §3.5, M12 |
 | 9 | **`default16` is a third in-house set** (added 2026-10-14). A 16-bit SNES-era pixel-art re-skin of `default`, slug `default16`, seeded by `pnpm art:wire default16`. `default` remains the live default experience; questions stay identical. | §3.5, M12 |
 | 10 | **Audio is one shared static set, not per-mode CMS content** (added 2026-10-14). The same music and effects play in every mode; they live in the repo, not the `modes` collection, and are read through one resolver so they can be promoted to CMS later without a rewrite. Web audio formats, never MIDI. Sound is always optional — muted play is fully supported. | §3.7, M13 |
+| 11 | **The player waits once, up front** (added 2026-10-14). Assets ship compressed, the first scene preloads behind a bounded loading screen, and later sections prefetch during play. Re-encoding art for delivery is never a reason to regenerate it, and must not disturb M12's ground contract. | §3.8, M14 |
 | 5 | **Unknown mode slug → 404.** No fallback, no redirect. | §7 |
 | 6 | **Results permalink is shareable and permanent.** Which is exactly why the run id must be unguessable. | §3.4, §6 |
 
