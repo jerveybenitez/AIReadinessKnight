@@ -170,6 +170,29 @@ re-skin, not a redesign, and it changes nothing about the fallback mechanism abo
 `electric` ends up with nothing left to fall back for. **Questions, options and scores are
 identical to `default` and must not be touched** (see M11).
 
+**Exception — `default16` is yours too.** M12 (§8) asks for a third in-house set: a **16-bit,
+SNES-era pixel-art re-skin of `default`**, on the slug `default16`. Same rules as `electric` —
+same compositions, poses, anchors and framing, questions identical, `default` unaffected and still
+the live default experience. Only the rendering style changes: chunky pixels, a deliberately
+limited palette, hard-edged dithering instead of soft gradients, readable at a glance.
+
+**Standing rule — things that stand on the ground must touch it.** Every section's targets
+(archery targets, punching bags, training dummies) rest on the floor. Their feet, legs or base
+must make contact with the background's ground plane — **no floating, no gap, in any mode.** This
+is a contract between two separate images, so neither one can satisfy it alone:
+
+- the **background** must put its ground plane (where the back wall, floor or horizon meets the
+  standing surface) at the same stage Y in every section and every mode; and
+- the **target sprite** must be drawn so its lowest contact point sits at the bottom of its alpha
+  bounding box, with no transparent padding beneath it — the pipeline bottom-anchors sprites, so
+  padding below the feet becomes visible float.
+
+M12 owns measuring the single baseline Y this implies, writing it into the `game-assets` skill as
+a named constant with the target-row geometry beside it, and stating it in every background and
+target prompt from then on. **Check it before generating a full set, not after** — this is a
+compositional constraint like the M8 bare-middle-band rule, and it is cheap before a pass and
+expensive after.
+
 ### 3.6 Non-negotiable UX baseline
 
 - **Landscape only, everywhere.** Logical stage of 1280×720, scaled to fit. Desktop and tablet are
@@ -399,6 +422,65 @@ placeholders reachable, `/default` is completely unchanged, the questions are by
 *Show the user the sample before the full pass* — same gate as M8: the knight plus one section,
 reviewed against the `default` originals side by side, before the remaining ~37 assets are made.
 
+**M12 — Grounded targets + the `default16` mode**
+Two deliverables that share one constraint, which is why they are one milestone: the floating-target
+fix establishes the ground contract (§3.5), and `default16` is the first set generated under it.
+
+**(a) Fix the floating targets.** In `/default` and `/electric`, the archery targets' legs do not
+reach the floor — they hover above the background's ground plane. Fix the **archery** section of
+both modes.
+
+*Diagnose before regenerating anything.* There are two candidate causes and they have very
+different costs:
+- **Geometry** — `src/game/scenes/Question.tsx` puts the target row at `TARGET_TOP = 198` with
+  `TARGET_SIZE = 200`, so a target's box bottom lands at stage Y **398**, while the backgrounds
+  appear to draw their ground plane lower than that. If the row is simply too high, a constant
+  change fixes every mode and every section at once, costs nothing, and generates no images.
+- **Art** — the target sprites may carry transparent padding below the legs (the pipeline
+  bottom-anchors into a 200×200 box, so padding reads as float), or the backgrounds may disagree
+  with each other about where the floor is.
+
+Measure both before choosing — read the alpha bounding boxes of the four existing archery target
+sprites (`art/{default,electric}/archery/target.{idle,hit}@2x.png`) and the ground-plane Y of the
+two archery backgrounds. Report the numbers. **Only regenerate the images the measurement actually
+indicts**; a layout bug does not get fixed by redrawing art, and regenerating four sprites to
+correct a constant is wasted spend. If the fix turns out to be geometry, say so plainly and change
+the constant instead — the user asked for remade images, but they asked for them in order to stop
+the floating, and the floating is the requirement.
+
+Whatever the cause: `target.hit` must stay aligned with `target.idle` (they share a footprint —
+the hit state must not jump), the stuck-projectile and hit-effect overlays must still land on the
+target, and boxing/swordsmanship must be checked for the same defect even though the report came
+from archery. Fix those too if they have it.
+
+**(b) Write the contract down so it cannot recur.** Add the measured baseline Y and the target-row
+geometry to `.claude/skills/game-assets/SKILL.md` as a named constant in the canonical-sizes table,
+with the §3.5 standing rule restated as a failure mode. Add the ground-contact sentence to every
+background and target prompt in `docs/art-prompts.md`. This is the part that protects `default16`
+and every future mode.
+
+**(c) Ship `default16`.** A full 43-slot set on the slug `default16`: a 16-bit SNES-era pixel-art
+re-skin of `default` per §3.5, generated in one consistent pass under the ground contract from (b),
+sample-gated as in M8/M11. `default` stays the live default experience and is not modified beyond
+the (a) fix. Questions, options and scores are identical to `default` — do not touch them.
+
+Pipeline notes, both of which will bite silently:
+- `pnpm art:wire default16` **must work**, same as `pnpm art:wire electric` (M11 made the script
+  slug-aware). Confirm it, don't rebuild it. Same for `node scripts/art/process-set.mjs default16`.
+- **`sharp`'s default resampling will destroy pixel art.** Every `.resize()` in
+  `process-set.mjs` uses the smooth default kernel, which turns hard pixel edges into mush at any
+  scale. Use nearest-neighbour for this set, keep the scale factors integer where you can, and
+  consider `image-rendering: pixelated` for the mode. A 16-bit set that has been lanczos-resampled
+  looks like a blurry mistake, not a style.
+
+*Done when:* no target floats in any section of `/default`, `/electric` or `/default16` (asserted,
+not eyeballed — extend the verification scripts with a ground-contact check); `/default16` plays
+end to end on its own art with zero `default` URLs and zero placeholders; `pnpm art:wire default16`
+seeds the set from a clean state; `/default` and `/electric` are otherwise unchanged; the baseline
+constant is written into the `game-assets` skill; and all §8 gates are green.
+*Show the user the sample before the full pass* — the knight plus the archery section, with the
+ground contact visible, against the `default` original.
+
 ### Verification you owe on every milestone
 
 Run `pnpm lint`, `pnpm test`, and actually open the app. Report failures with the real output —
@@ -433,6 +515,8 @@ them; if one turns out to be unbuildable, say so and stop rather than quietly su
 | 3 | **Landscape everywhere.** Desktop and tablet, both landscape. No portrait layout; portrait gets "rotate to play". | §3.6 |
 | 4 | **You generate the `default` art.** Other modes are supplied by the backend user, and anything they don't upload falls back to `default`. | §3.5, §7, M8 |
 | 7 | **You generate the full `electric` art too** (added 2026-10-13, amends #4 for this one mode). `electric` is an electronic/cyberpunk **re-skin of `default`** — same compositions, poses and anchors, restyled; its questions stay identical to `default`'s. Every other mode still follows #4. | §3.5, M11 |
+| 8 | **Targets never float** (added 2026-10-14). Everything that stands on the ground touches it, in every mode and section — a contract between the background's ground plane and the sprite's alpha bbox, with one measured baseline Y recorded in the `game-assets` skill. | §3.5, M12 |
+| 9 | **`default16` is a third in-house set** (added 2026-10-14). A 16-bit SNES-era pixel-art re-skin of `default`, slug `default16`, seeded by `pnpm art:wire default16`. `default` remains the live default experience; questions stay identical. | §3.5, M12 |
 | 5 | **Unknown mode slug → 404.** No fallback, no redirect. | §7 |
 | 6 | **Results permalink is shareable and permanent.** Which is exactly why the run id must be unguessable. | §3.4, §6 |
 
