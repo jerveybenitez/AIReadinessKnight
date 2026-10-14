@@ -204,6 +204,40 @@ expensive after.
 - Respects `prefers-reduced-motion`: animations collapse to instant state changes, game stays
   fully playable.
 - Progress survives an accidental refresh mid-run.
+- **Sound is optional, never required.** Nothing the player must know is conveyed by audio alone,
+  and the game is fully playable muted or on a device with no audio output. See §3.7.
+
+### 3.7 Audio
+
+Added 2026-10-14; built in M13. Unlike art, **audio is one shared set across every mode** — the
+same music and sound effects play in `default`, `electric`, `default16` and any future mode. It is
+a static asset set in the repo, not a CMS upload, and it is deliberately generic: a mode re-skin
+changes how the game looks, not how it sounds.
+
+That is a conscious exception to "every asset is a CMS upload" (§7, `game-assets`), so build it to
+be promotable later: every sound is read through **one resolver** (`soundFor('attack')`, mirroring
+`assetFor`), so moving audio into the `modes` collection one day is a change to that resolver and
+nothing else. No component ever references a file path directly.
+
+**Format: ordinary web audio files, not MIDI.** Browsers have no built-in MIDI synth — playing a
+`.mid` means shipping a JS synthesiser and a soundfont, which is a heavy dependency and
+unpredictable output for no benefit. Use what `<audio>` / Web Audio plays natively. A chiptune
+*style* is welcome; a MIDI *file format* is not.
+
+The contract, all of it non-negotiable:
+
+- **Nothing plays before a user gesture.** Browsers block autoplay, and an unlocked-too-early
+  `AudioContext` throws console errors on every load. Unlock on the first real interaction (the
+  title screen's Begin button) and treat anything earlier as muted.
+- **A visible mute control on every scene**, keyboard reachable with a proper accessible name,
+  state persisted across reloads and runs. Volume control is welcome; mute is mandatory.
+- **Audio never blocks or breaks gameplay.** A missing file, a decode failure, a device with no
+  output — each degrades to silence, and the scene advances exactly as it would have. Same
+  philosophy as the QWEN fallback in §5: the feature is an enhancement, never a dependency.
+- **No audio in the critical path of first paint.** Preload is lazy; the title screen must not
+  wait on a music file.
+- `prefers-reduced-motion` is not a mute signal and must not be treated as one — but anything that
+  pulses or throbs in time with audio follows it like any other animation.
 
 ---
 
@@ -481,6 +515,60 @@ constant is written into the `game-assets` skill; and all §8 gates are green.
 *Show the user the sample before the full pass* — the knight plus the archery section, with the
 ground contact visible, against the `default` original.
 
+**M13 — Music and sound effects**
+Give the game a shared soundtrack and effect set per §3.7 — one set, every mode, static in the
+repo, read through a single resolver.
+
+**The set.** Keep it small and general; a tight set that is consistent beats a large one that
+isn't (the same rule as the art pass). Target roughly a dozen files:
+
+| Group | Cues |
+| --- | --- |
+| Music (looping) | title/intake · gameplay (one loop for all three sections) · results |
+| Section feedback | attack (per section: bow release · punch · sword swish) · impact/hit |
+| Scene stings | section-end, one per band (`0-0.9` · `1-2.9` · `3-4`) · results reveal |
+| UI | hover/focus move · select/confirm · error |
+
+Per-section attack and impact cues are the only section-aware sounds — everything else is global.
+If a section cue is missing, fall back to the generic one rather than playing nothing.
+
+**Where the audio comes from — decide and record it.** You have no audio-generation tool, so this
+is a real choice and the milestone's main risk:
+- **Synthesise it in a script** (recommended) — `scripts/audio/generate-set.mjs`, the same pattern
+  as `scripts/art/`: deterministic, reproducible, license-clean by construction, regenerable when
+  someone wants a different mood, and a chiptune/synth palette suits this game (and `default16`
+  exactly). Node can write WAV with no dependency at all.
+- **Source CC0 / public-domain audio** — faster to something polished, but every file needs its
+  provenance and license recorded, and nothing with an attribution-only or non-commercial license
+  may be committed.
+
+Either way: record the choice and the per-cue source (script parameters or origin URL + license)
+in `docs/audio.md`, the audio counterpart to `docs/art-prompts.md`, and write an ADR in
+`docs/adr/` for the format and delivery decision.
+
+**Two things that will bite:**
+- **Encoding.** WAV needs no encoder and every browser plays it — fine for short effects, which
+  are a few KB each. Music loops are the problem: 30 seconds of 44.1kHz stereo WAV is ~5MB, which
+  violates §3.7's no-blocking rule in spirit. Prefer mp3/ogg if an encoder is actually available on
+  this machine; if not, mono and a lower sample rate make WAV loops viable. **Check what's
+  available before generating anything** rather than discovering it at the end.
+- **The test suite.** The e2e suite drives 15 questions through real browsers; unlocked audio there
+  is noise and flake. Make the muted path the default under test, and add coverage that matters:
+  mute persists across a reload, and a deliberately broken sound file does not stop a question from
+  advancing (the §3.7 degradation rule, asserted the same way the QWEN fallback is).
+
+**Keep it out of the way of the game.** No scene's timing changes to accommodate a sound; the
+700ms attack choreography (ADR 0003) stays exactly as it is and the audio fits inside it. If a cue
+is longer than its beat, trim the cue, not the beat.
+
+*Done when:* a full playthrough of `/default` has music and effects at every cue above, the same
+set plays in `/electric` and `/default16`, mute is reachable by keyboard on every scene and
+survives a reload, no console autoplay or decode errors on any route, a corrupted sound file still
+leaves the game fully playable, `docs/audio.md` + the ADR explain where every cue came from, and
+all §8 gates are green.
+*Play it before calling it done* — this is a milestone where "the tests pass" is especially far
+from "it sounds right". Report what you actually heard.
+
 ### Verification you owe on every milestone
 
 Run `pnpm lint`, `pnpm test`, and actually open the app. Report failures with the real output —
@@ -517,6 +605,7 @@ them; if one turns out to be unbuildable, say so and stop rather than quietly su
 | 7 | **You generate the full `electric` art too** (added 2026-10-13, amends #4 for this one mode). `electric` is an electronic/cyberpunk **re-skin of `default`** — same compositions, poses and anchors, restyled; its questions stay identical to `default`'s. Every other mode still follows #4. | §3.5, M11 |
 | 8 | **Targets never float** (added 2026-10-14). Everything that stands on the ground touches it, in every mode and section — a contract between the background's ground plane and the sprite's alpha bbox, with one measured baseline Y recorded in the `game-assets` skill. | §3.5, M12 |
 | 9 | **`default16` is a third in-house set** (added 2026-10-14). A 16-bit SNES-era pixel-art re-skin of `default`, slug `default16`, seeded by `pnpm art:wire default16`. `default` remains the live default experience; questions stay identical. | §3.5, M12 |
+| 10 | **Audio is one shared static set, not per-mode CMS content** (added 2026-10-14). The same music and effects play in every mode; they live in the repo, not the `modes` collection, and are read through one resolver so they can be promoted to CMS later without a rewrite. Web audio formats, never MIDI. Sound is always optional — muted play is fully supported. | §3.7, M13 |
 | 5 | **Unknown mode slug → 404.** No fallback, no redirect. | §7 |
 | 6 | **Results permalink is shareable and permanent.** Which is exactly why the run id must be unguessable. | §3.4, §6 |
 
