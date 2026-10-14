@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
+import { audioEngine } from '../audio/engine'
 import type { ResolvedMode } from '../types'
 
 export interface IntakeFields {
@@ -25,6 +26,11 @@ export function IntakeScene({ mode, onDone }: IntakeSceneProps) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Title and intake share the one intake bed (QODER.md M13); a no-op when already playing.
+  useEffect(() => {
+    audioEngine.setMusic('music-title')
+  }, [])
+
   const ready = knightName.trim().length > 0 && companyName.trim().length > 0
 
   const submit = async (event: FormEvent) => {
@@ -32,6 +38,7 @@ export function IntakeScene({ mode, onDone }: IntakeSceneProps) {
     if (!ready || pending) return
     setPending(true)
     setError(null)
+    audioEngine.play('ui-select')
     try {
       await onDone({
         knightName: knightName.trim(),
@@ -39,6 +46,7 @@ export function IntakeScene({ mode, onDone }: IntakeSceneProps) {
         industry: industry.trim(),
       })
     } catch (cause) {
+      audioEngine.play('ui-error')
       setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.')
       setPending(false)
     }

@@ -23,7 +23,7 @@ Last updated: 2026-10-14
 | M10 | Hardening | **complete** | README rewritten for a new developer; docker-compose is postgres-only; favicon added (no more console 404); a11y pass (keyboard-only full playthrough e2e + recovery-screen focus); error-state e2e (answer failure, resume failure, unknown `/result` 404); all gates green — `pnpm test` 74 int + 15 e2e (see log below) |
 | M11 | Electric art set | **complete** | full set generated (sample gated first, as in M8), processed with `process-set.mjs electric` (`art/electric/**`, 40 files / 43 slots, knight cap K=540), wired via slug-aware `pnpm art:wire electric`; `/electric` verified end to end with **zero** `default` URLs and zero placeholders; questions byte-identical to `default`; per-slot fallback re-proven on a throwaway scratch mode; all gates green — lint/tsc 0, 74 int + 15 e2e (see log below) |
 | M12 | Grounded targets + `default16` | **complete** | (a) float diagnosed as **background** geometry (sprites were already correct — feet row 395, box bottom 398 vs contract 396): default archery −24px → bg 789, electric archery v3 +48px → 793 (v2 floated +73.5px), electric sword −11px → 792. (b) measured contract in the game-assets skill (`GROUND_BASELINE_Y = 396` = 55% bg height, band 786–796) + ground sentence in every prompt; permanent asserted check `scripts/art/check-ground.mjs` green on all 3 sets. (c) `default16` 16-bit re-skin: sample-gated, 31 raws, nearest-neighbour pipeline (K=533), wired via **new** `pnpm mode:dup default16` + `pnpm art:wire default16` with the clean-state re-seed proven (43/43); sword bg repaired without regen (props painted out + 13px shift → 787.5). `verify-default16.mjs`: zero `default`/`electric` URLs in any scene, zero placeholders, byte-identical questions. Gates green — lint/tsc 0, 74 int + 15 e2e (see log below) |
-| M13 | Music + sound effects | **not started** | Added to `QODER.md` §3.7 + §8 on 2026-10-14 (settled decision #10). One shared static audio set for **all** modes, behind a single `soundFor()` resolver; ~12 cues (3 music loops, per-section attack/impact, 3 band stings, UI). Web audio formats, **never MIDI**. No autoplay before a user gesture; keyboard-reachable mute persisted across reloads; a broken sound file must never block a scene. Decide synth-script vs CC0 sourcing and record it in `docs/audio.md` + an ADR. Check for an mp3/ogg encoder *before* generating — WAV music loops are ~5MB. |
+| M13 | Music + sound effects | **complete** | One shared static set for all modes, synthesised by `scripts/audio/generate-set.mjs` (deterministic, license-clean; no encoder exists here so WAV 22050 Hz mono — ADR 0005): 15 files, 2521 KB. One resolver `soundFor()` (§3.7, CMS-promotable) + one gesture-gated engine (music via looping `<audio>`, SFX via Web Audio, failures cached as silence). Mute button on every scene via Stage, keyboard-reachable, `ark:muted` persisted; automation starts muted. All cues wired incl. per-section attacks + band stings; 700 ms choreography untouched. `docs/audio.md` + ADR 0005. Gates green — lint/tsc 0, 74 int + 20 e2e (5 new audio specs; full-suite parallel flake not seen on re-run) (see log below) |
 
 ## M1 verification log (2026-10-13)
 
@@ -631,6 +631,62 @@ zero `default`/`electric` URLs and zero placeholders; `art:wire default16` seeds
 state; `/default` + `/electric` are unchanged except the M12(a) background shifts; the baseline
 constant is in the skill; all §8 gates green.
 
+
+## M13 completion log (2026-10-14)
+
+**The set.** `scripts/audio/generate-set.mjs` synthesises all 15 cues (target was ~12; the section
+feedback group needs a generic fallback file to exist for the §3.7 fallback rule, and per-section
+attacks are 3 files): 3 music loops (title 19.2 s / gameplay 14.5 s / results 17.1 s), per-section
+attacks (archery bow-release, boxing punch, sword swish) + generic fallback + impact, 3 band stings
+(`0-0.9` low / `1-2.9` mid / `3-4` high) + results-reveal fanfare, UI hover/select/error. WAV,
+22050 Hz, mono, 16-bit PCM — **2521 KB total**, music files 626–847 KB each, one-shots ≤ 75 KB.
+Loops are composed to whole bars so seams land on pattern boundaries; every file passes the
+script's own sanity checks (pre-normalise peak, post-peak 0.85, expected duration); re-running the
+script reproduces the set (verified). Encoder survey before generating, as mandated: ffmpeg, lame,
+oggenc, sox all absent; Python 3.14 has no stdlib encoder → WAV was the only producible format,
+mono/22050 keeps it viable. Decision + rationale: ADR 0005; per-cue recipes: `docs/audio.md`.
+
+**Runtime.** `src/game/audio/sounds.ts` — `soundFor(cue, { section? })`, the single resolver
+mirroring `assetOr`; per-section `attack` falls back to the generic file, unknown cue → `null`.
+`src/game/audio/engine.ts` — singleton; gesture-gated `unlock()` (Begin button, mute control, or
+Stage's one-time global pointer/key listener); music held as "desired" until unlock; looping
+`HTMLAudioElement` for beds, fetch+decodeAudioData `AudioBufferSourceNode` for one-shots; every
+failure path (missing file, bad fetch, decode error, no device) resolves to silence and is cached
+per URL; `ark:muted` persisted, automation (`navigator.webdriver`) starts muted so the suite is
+silent by default. `MuteControl.tsx` rendered by Stage on every scene: real button, keyboard
+reachable, `aria-pressed`, labelled "Mute sound"/"Unmute sound". Scene wiring: title/intake →
+`music-title`; questions → `music-gameplay` + attack at launch (per section) + impact at
+`FLIGHT_MS` + hover blips; section-end → band sting; results → `music-results` + reveal sting;
+error surfaces (intake validation, answer save failure, report failure) → `ui-error`; primary
+buttons → `ui-select`. The 700 ms attack choreography (ADR 0003) is untouched — no cue outlives
+its beat, no scene waits on audio.
+
+**Verification.**
+- Gates on the dead QWEN endpoint (`QWEN_BASE_URL=http://127.0.0.1:9/v1`): `pnpm lint` 0,
+  `tsc --noEmit` 0, `pnpm test:int` 74 passed (6 files), `PW_CHANNEL=chrome pnpm test:e2e`
+  **20 passed / 0 failed** (15 pre-existing + 5 new audio specs).
+- New `tests/e2e/audio.e2e.spec.ts`: mute toggle keyboard-reachable + persists across reload
+  (both directions); corrupted `attack-archery.wav` degrades — Q2 still advances, console clean;
+  failed report plays `ui-error`, results intact; **same set** in default/electric/default16
+  (identical URL sets, clean console) — each mode in a **fresh browser context**, because Chrome
+  serves repeat media-element loads from a per-context cache with no network events (CDP
+  `Network.setCacheDisabled` does NOT flush it — proven with a probe script; the fresh-context
+  approach observes every request honestly); full default playthrough fires all 13 expected cues
+  and provably does *not* fetch `attack-generic`/`ui-error` in a clean run.
+- Real-browser open (browser-use, portrait viewport): all three routes render, zero console
+  errors on each, zero audio network traffic before a gesture, mute control present with correct
+  name/state; portrait rotate overlay confirmed live.
+- **What "play it" means here, honestly:** headless/automation Chrome on this machine has no
+  audible output path for me — I verified *that every cue fires at its moment in a real browser
+  with a clean console*, not what it sounds like. Levels/mix/loop feel were set by construction
+  (deterministic normalisation to peak 0.85, music bed at 0.42 gain, one-shots ≤ 0.35 s) and need
+  a human ear pass: `pnpm dev`, play `/default` unmuted, and re-run `pnpm audio:generate` after
+  any recipe tweak.
+
+Done-when re-checked: full playthrough has music+effects at every cue (asserted cue-by-cue);
+same set in `/electric` + `/default16` (identical URL sets); mute keyboard-reachable on every
+scene + survives reload; no console autoplay/decode errors on any route; corrupted file leaves the
+game fully playable; `docs/audio.md` + ADR 0005 explain every cue; all §8 gates green.
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 

@@ -1,5 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
+
+import { audioEngine } from '../audio/engine'
 import { assetOr } from '../assets'
 import { Sprite } from '../components/Sprite'
 import type { ResolvedMode } from '../types'
@@ -10,6 +13,12 @@ export interface TitleSceneProps {
 }
 
 export function TitleScene({ mode, onStart }: TitleSceneProps) {
+  // Title/intake share one music bed. Pre-gesture this is only "desired" — the engine holds it
+  // until the first interaction, so nothing autoplays (§3.7).
+  useEffect(() => {
+    audioEngine.setMusic('music-title')
+  }, [])
+
   return (
     <section className="ark-scene ark-title-scene" aria-labelledby="ark-title-heading">
       <div className="ark-scene-bg">

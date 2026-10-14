@@ -2,6 +2,9 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 
+import { audioEngine } from '../audio/engine'
+import { MuteControl } from './MuteControl'
+
 /**
  * The fixed 1280×720 logical stage (game-assets / knight-game skill).
  *
@@ -12,6 +15,10 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
  * - There is no portrait layout; a portrait viewport gets the rotate-to-play overlay (game.css).
  * - Theme values (accent colour, font) arrive as CSS custom properties so every scene inherits
  *   them without threading style props through component trees.
+ * - The mute control is a Stage child (not a scene child): every scene of every route gets the
+ *   same sound toggle, including the results permalink that never sees the game shell. Stage
+ *   also arms the engine's one-time gesture unlock — the first real interaction anywhere is
+ *   the audio unlock on routes that have no Begin button (§3.7).
  */
 
 export const STAGE_WIDTH = 1280
@@ -40,6 +47,8 @@ export function Stage({ children, accentColor, fontFamily }: StageProps) {
     }
   }, [])
 
+  useEffect(() => audioEngine.armGestureUnlock(), [])
+
   const style: CSSProperties = {}
   if (accentColor) (style as Record<string, string>)['--ark-accent'] = accentColor
   if (fontFamily) (style as Record<string, string>)['--ark-font'] = fontFamily
@@ -63,6 +72,7 @@ export function Stage({ children, accentColor, fontFamily }: StageProps) {
         }}
       >
         {children}
+        <MuteControl />
       </div>
     </div>
   )

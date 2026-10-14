@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
+import { audioEngine } from '../audio/engine'
 import { assetOr } from '../assets'
 import { Sprite } from '../components/Sprite'
 import { clearRunId, requestReport } from '../run-client'
@@ -54,6 +55,20 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
   const [view, setView] = useState<'scores' | 'report'>('scores')
   const [report, setReport] = useState<ReportState | null>(initialReport)
   const [reportPhase, setReportPhase] = useState<ReportPhase>(initialReport ? 'ready' : 'loading')
+
+  // The reckoning gets its own bed and reveal fanfare. This scene also renders on the permalink
+  // route, where the fanfare fires only after the first interaction has unlocked audio (§3.7) —
+  // on the in-game route the unlock already happened, so it plays on arrival.
+  useEffect(() => {
+    audioEngine.setMusic('music-results')
+    audioEngine.play('results-reveal')
+  }, [])
+
+  // The report degrades gracefully by design; the error phase is the one place the results
+  // screen itself calls something a failure — it gets the error cue like any other alert.
+  useEffect(() => {
+    if (reportPhase === 'error') audioEngine.play('ui-error')
+  }, [reportPhase])
 
   // Generation starts as soon as results mount, so the report is usually ready by the time the
   // player opens it. The endpoint caches per run: this fires at most one model call, ever.
@@ -192,7 +207,14 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
           <p className="ark-results-report-status" aria-live="polite">
             {reportStatusLine}
           </p>
-          <button type="button" className="ark-btn ark-btn--compact" onClick={() => setView('report')}>
+          <button
+            type="button"
+            className="ark-btn ark-btn--compact"
+            onClick={() => {
+              audioEngine.play('ui-select')
+              setView('report')
+            }}
+          >
             Read the full report
           </button>
         </div>
@@ -201,7 +223,14 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
           <code className="ark-results-permalink-text" ref={permalinkRef}>
             {permalink}
           </code>
-          <button type="button" className="ark-btn ark-btn--compact" onClick={handleCopy}>
+          <button
+            type="button"
+            className="ark-btn ark-btn--compact"
+            onClick={() => {
+              audioEngine.play('ui-select')
+              handleCopy()
+            }}
+          >
             {copyLabel}
           </button>
         </div>
@@ -210,7 +239,10 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
           <a
             href={`/${mode.slug}`}
             className="ark-btn ark-btn--primary"
-            onClick={() => clearRunId(mode.slug)}
+            onClick={() => {
+              audioEngine.play('ui-select')
+              clearRunId(mode.slug)
+            }}
           >
             Train again
           </a>

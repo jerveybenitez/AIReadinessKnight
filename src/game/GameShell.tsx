@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 
+import { audioEngine } from './audio/engine'
 import { Stage } from './components/Stage'
 import { canGoBack, initialState, reduce, type GameState, type GameEvent } from './machine'
 import type { ReportState } from './report'
@@ -65,6 +66,12 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
   const [answerError, setAnswerError] = useState<string | null>(null)
   const [actionFor, setActionFor] = useState<QuestionAction | null>(null)
   const reducedMotion = usePrefersReducedMotion()
+
+  // A failed answer write gets the error sound alongside its visible banner. Audio is a pure
+  // announcement here — it never touches the retry path (§3.7: degrade, never block).
+  useEffect(() => {
+    if (answerError) audioEngine.play('ui-error')
+  }, [answerError])
 
   // Resume, in priority order: the ?run= pointer from the URL (a permalink handed to this
   // browser), then the session's own pointer for this mode (ADR 0002). The first run that
@@ -184,7 +191,18 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
     const scene = state.scene
     switch (scene.name) {
       case 'title':
-        return <TitleScene mode={mode} onStart={() => dispatch({ type: 'START' })} />
+        return (
+          <TitleScene
+            mode={mode}
+            onStart={() => {
+              // The canonical audio unlock: the first real interaction (§3.7). The engine is
+              // idempotent, and Stage's gesture listener covers every other route.
+              audioEngine.unlock()
+              audioEngine.play('ui-select')
+              dispatch({ type: 'START' })
+            }}
+          />
+        )
       case 'intake':
         return <IntakeScene mode={mode} onDone={handleIntakeDone} />
       case 'question': {

@@ -938,6 +938,23 @@
   padding: 8px 14px;
 }
 
+/* ---- sound toggle (M13) ---- */
+
+/* Stage-level chrome: the same real button on every scene of every route, including the
+   results permalink. Sits above the attack skip layer so it stays clickable mid-choreography. */
+
+.ark-mute {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 30;
+  background: rgba(10, 10, 20, 0.72);
+}
+
+.ark-mute[aria-pressed='true'] {
+  opacity: 0.8;
+}
+
 .ark-results-actions {
   display: flex;
   gap: 12px;

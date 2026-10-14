@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 
+import { audioEngine } from '../audio/engine'
 import { assetOr } from '../assets'
 import { Knight } from '../components/Knight'
 import { ProgressNav } from '../components/ProgressNav'
@@ -96,6 +97,23 @@ export function QuestionScene({
   const chosenIndex = answered?.optionIndex ?? null
   const hoveredIndex =
     (pointer?.qid === questionId ? pointer.index : null) ?? (focus?.qid === questionId ? focus.index : null)
+
+  // One music bed for all three sections (QODER.md M13): requested on every question mount,
+  // a no-op when it is already playing.
+  useEffect(() => {
+    audioEngine.setMusic('music-gameplay')
+  }, [])
+
+  // The attack beat, in sound: section attack cue when the choreography starts, the impact
+  // exactly at the projectile's landing moment (the same FLIGHT_MS the CSS uses, ADR 0003), and
+  // both are skipped when the visual beat itself is skipped under reduced motion. Audio is a
+  // pure consequence — the always-resolving completion timer below owns the advance.
+  useEffect(() => {
+    if (!attacking || reducedMotion) return
+    audioEngine.play('attack', { section: section?.key })
+    const impactTimer = window.setTimeout(() => audioEngine.play('impact'), FLIGHT_MS)
+    return () => window.clearTimeout(impactTimer)
+  }, [attacking, reducedMotion, section])
 
   // Completion: one timer that always resolves + an any-key skip; reduced motion advances at once.
   const finishRef = useRef<(() => void) | null>(null)
@@ -216,12 +234,16 @@ export function QuestionScene({
               impactEffect={section.assets.hitEffect}
               stuckProjectile={section.assets.projectile}
               showStuckProjectile={chosenIndex === index && !attacking && Boolean(section.assets.projectile)}
-              onEnter={() => setPointer({ qid: questionId, index })}
+              onEnter={() => {
+                setPointer({ qid: questionId, index })
+                audioEngine.play('ui-hover')
+              }}
               onLeave={() => setPointer((p) => (p?.qid === questionId && p.index === index ? null : p))}
               onFocus={() => {
                 // Keyboard focus outranks a resting pointer: the newest interaction wins the bubble.
                 setFocus({ qid: questionId, index })
                 setPointer(null)
+                audioEngine.play('ui-hover')
               }}
               onBlur={() => setFocus((f) => (f?.qid === questionId && f.index === index ? null : f))}
               onSelect={() => onAnswer(index)}

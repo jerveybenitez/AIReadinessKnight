@@ -1,5 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
+
+import { audioEngine } from '../audio/engine'
 import { assetOr } from '../assets'
 import { Knight, type KnightPose } from '../components/Knight'
 import { Sprite } from '../components/Sprite'
@@ -35,7 +38,18 @@ export function SectionEndScene({ mode, sectionIndex, answers, onContinue }: Sec
   const section = mode.sections[sectionIndex]
   const isLast = sectionIndex === mode.sections.length - 1
 
-  if (!section) {
+  // Hooks run before any early return: a missing section simply has no band and no sting.
+  const band: SectionBandKey | null = section
+    ? sectionBand(section.questions.map((question) => answers[question.id]?.score ?? 0))
+    : null
+
+  // One scene sting per band — the audio mirror of the band-driven animation frame. The
+  // gameplay music bed keeps playing underneath (one loop for all three sections, M13).
+  useEffect(() => {
+    if (band) audioEngine.play(`sting-${band}`)
+  }, [band])
+
+  if (!section || !band) {
     return (
       <section className="ark-scene ark-section-end-scene" aria-labelledby="ark-section-end-heading">
         <h2 id="ark-section-end-heading" tabIndex={-1}>
@@ -45,7 +59,6 @@ export function SectionEndScene({ mode, sectionIndex, answers, onContinue }: Sec
     )
   }
 
-  const band = sectionBand(section.questions.map((question) => answers[question.id]?.score ?? 0))
   const animation = section.sectionAnimation[band]
 
   return (
@@ -65,7 +78,14 @@ export function SectionEndScene({ mode, sectionIndex, answers, onContinue }: Sec
           />
         </div>
         <p className="ark-section-end-copy">{animation.text}</p>
-        <button type="button" className="ark-btn ark-btn--primary" onClick={onContinue}>
+        <button
+          type="button"
+          className="ark-btn ark-btn--primary"
+          onClick={() => {
+            audioEngine.play('ui-select')
+            onContinue()
+          }}
+        >
           {isLast ? 'See the final reckoning' : 'Next training ground'} →
         </button>
       </div>
