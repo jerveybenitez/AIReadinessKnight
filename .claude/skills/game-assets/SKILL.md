@@ -53,6 +53,26 @@ portrait crop to protect. Compose to the full 16:9 frame.
 | Hit effect | ~160×160 | Centred on the struck target. |
 | Final knight | ~480×640 | Results screen, larger than in-game. |
 
+### Ground contract (M12 — measured, not assumed)
+
+Sprites are bottom-anchored into fixed render boxes, so a sprite's alpha bbox bottom **is** its
+feet. Backgrounds must agree with that line or everything standing hovers.
+
+**`GROUND_BASELINE_Y = 396`** (stage px; equals bg px 792 of 1440 = 55% of background height;
+pass band bg px [786, 796] = stage 393–398):
+
+- Target row: `left = 70`, `top = 198`, boxes `200×200` stage (400×400 @2x canvas), `gap = 35`,
+  five across → box bottoms at stage Y 398. Every standing sprite's alpha bbox bottom sits at
+  canvas row 395 (@2x) → **feet at stage Y 395.5**, i.e. on the baseline.
+- Backgrounds: the wall/floor junction must sit at **bg px 792 of 1440** (55% height). This is the
+  line the target legs and the knight's boots meet.
+- Boxing bags hang from the top edge (bbox top ≈ canvas row 4) — no ground contact; exempt.
+
+Generators do not place this line reliably (M12 measured regens at 55–68% of height). Every
+background is **measured after processing** (`scripts/art/check-ground.mjs`) and corrected by a
+deterministic pixel shift if it misses the band. Prompts state the line explicitly; see
+`docs/art-prompts.md`.
+
 Export at 2× for crisp display on HiDPI; serve via Payload/`sharp`, which the scaffold already has.
 
 ## Required asset slots per mode
@@ -149,3 +169,12 @@ This is your job, not an artist's. Treat it as a single deliverable, not 40 sepa
    polish.
 6. **Oversized uploads.** Run them through `sharp`; a 4MB background makes the first question screen
    feel broken.
+7. **Floating targets.** Everything that stands on the ground touches it, in every mode and section
+   (QODER decision #8): sprites bottom-anchor into fixed boxes while each background draws its own
+   ground plane, and the two disagree by default — M12 measured +21.5px (`default` archery),
+   +73.5px (`electric` archery) and +10.5px (`electric` swordsmanship). Sprite-side padding reads
+   as float; background-side drift reads as hover. Fix at the measured source: bbox padding →
+   re-place the sprite; background junction off `GROUND_BASELINE_Y` → shift the background
+   (regenerating burns money and re-misses). `target.hit` must share `target.idle`'s footprint so
+   the hit state never jumps, and the stuck-projectile / hit-effect overlays must still land.
+   `scripts/art/check-ground.mjs` asserts the contract on every set — never eyeball it.

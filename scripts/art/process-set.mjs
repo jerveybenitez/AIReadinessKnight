@@ -35,11 +35,16 @@ const RAW = path.join(ROOT, 'vibe_images')
 const REVIEW = path.join(ROOT, 'docs', 'art-sample')
 
 const SET = process.argv[2] ?? 'default'
-if (!['default', 'electric'].includes(SET)) {
-  console.error(`unknown set "${SET}" — usage: node scripts/art/process-set.mjs [default|electric]`)
+if (!['default', 'electric', 'default16'].includes(SET)) {
+  console.error(`unknown set "${SET}" — usage: node scripts/art/process-set.mjs [default|electric|default16]`)
   process.exit(1)
 }
 const OUT = path.join(ROOT, 'art', SET)
+
+// M12 (default16): pixel-art set — sharp's default lanczos resampling turns hard pixel edges into
+// mush at any scale, so every resize in this pass uses nearest-neighbour instead. Other sets keep
+// the smooth kernel (painterly art wants it).
+const RESAMPLE = SET === 'default16' ? { kernel: 'nearest' } : {}
 
 const KNIGHT = { w: 600, h: 520, margin: 2 }
 const TARGET = { w: 400, h: 400, margin: 4 }
@@ -61,7 +66,10 @@ const WARM_TINT = 4
 let BACKGROUNDS = [
   { dir: 'title', file: 'background-title-golden_1791876808248_984e5c23.png' },
   { dir: 'results', file: 'background-results-evening_1791876818810_3e7b7943.png' },
-  { dir: 'archery', file: 'background-sample_1791875999081_445ec048.png' },
+  // M12(a): the M8 raw's wall/floor junction sat at bg px 834 (stage 417) — 21.5px above the
+  // target feet line. The groundfix raw is the same art shifted up 24px with the floor strip
+  // tiled into the bottom edge; measured junction bg 789 (stage 394.5).
+  { dir: 'archery', file: 'background-sample-groundfix_1791951145924_6a1fe97b.png' },
   { dir: 'boxing', file: 'background-boxing-v2_1791877934826_b64079b0.png' },
   { dir: 'swordsmanship', file: 'background-sword-v2_1791877946320_66dfa187.png' },
 ]
@@ -128,8 +136,12 @@ const rawByStem = (stem) => {
 if (SET === 'electric') {
   const raw = rawByStem
   BACKGROUNDS = [
-    { dir: 'archery', file: raw('background-electric-archery-v2') },
+    // M12(a): v3 regenerated for ground contact (v1 junction bg 938 → +73.5px float), then
+    // shifted up 48px with the floor tiled into the bottom edge — measured junction bg 793
+    // (stage 396.5). v4/v5 regens missed the line and were rejected.
+    { dir: 'archery', file: raw('background-electric-archery-v3') },
     { dir: 'boxing', file: raw('background-electric-boxing') },
+    // M12(a): shifted up 11px with the ceiling-side fill — measured junction bg 792 (stage 396).
     { dir: 'swordsmanship', file: raw('background-electric-sword') },
     { dir: 'title', file: raw('background-electric-title') },
     { dir: 'results', file: raw('background-electric-results') },
@@ -170,6 +182,58 @@ if (SET === 'electric') {
     { slot: 'high_average', file: raw('finalknight-electric-high-average') },
   ]
   LOGO_RAW = raw('logo-electric-wordmark')
+}
+
+// ---- default16 re-skin (M12) -------------------------------------------------------------------
+// 16-bit SNES-era pixel-art re-skin of the default set — same slots, same canvases, same ground
+// contract; raws resolve by stem exactly like electric. All resampling is nearest-neighbour
+// (RESAMPLE above) so the pixel edges survive processing.
+
+if (SET === 'default16') {
+  const raw = rawByStem
+  BACKGROUNDS = [
+    { dir: 'archery', file: raw('background-default16-archery') },
+    { dir: 'boxing', file: raw('background-default16-boxing') },
+    { dir: 'swordsmanship', file: raw('background-default16-sword') },
+    { dir: 'title', file: raw('background-default16-title') },
+    { dir: 'results', file: raw('background-default16-results') },
+  ]
+  KNIGHT_SHEETS = [
+    { section: 'archery', file: raw('knight-default16-archery-idle-attack'), poses: ['idle', 'attack'] },
+    { section: 'archery', file: raw('knight-default16-archery-celebrate-fail'), poses: ['celebrate', 'fail'] },
+    { section: 'boxing', file: raw('knight-default16-boxing-idle-attack'), poses: ['idle', 'attack'] },
+    { section: 'boxing', file: raw('knight-default16-boxing-celebrate-fail'), poses: ['celebrate', 'fail'] },
+    { section: 'swordsmanship', file: raw('knight-default16-sword-idle-attack'), poses: ['idle', 'attack'] },
+    { section: 'swordsmanship', file: raw('knight-default16-sword-celebrate-fail'), poses: ['celebrate', 'fail'] },
+  ]
+  TARGETS = [
+    { section: 'archery', sheet: raw('target-default16-idle-hit'), states: ['idle', 'hit'] },
+    { section: 'boxing', sheet: raw('target-default16-boxing-bag-idle-hit'), states: ['idle', 'hit'] },
+    { section: 'swordsmanship', sheet: raw('target-default16-sword-dummy-idle-hit'), states: ['idle', 'hit'] },
+  ]
+  ARROW_RAW = raw('arrow-default16')
+  EFFECTS = [
+    { section: 'archery', file: raw('hiteffect-default16') },
+    { section: 'boxing', file: raw('hiteffect-default16-boxing') },
+    { section: 'swordsmanship', file: raw('hiteffect-default16-sword') },
+  ]
+  BEATS = [
+    { section: 'archery', band: '3-4', file: raw('beat-default16-archery-high') },
+    { section: 'archery', band: '1-2.9', file: raw('beat-default16-archery-mid') },
+    { section: 'archery', band: '0-0.9', file: raw('beat-default16-archery-low') },
+    { section: 'boxing', band: '3-4', file: raw('beat-default16-boxing-high') },
+    { section: 'boxing', band: '1-2.9', file: raw('beat-default16-boxing-mid') },
+    { section: 'boxing', band: '0-0.9', file: raw('beat-default16-boxing-low') },
+    { section: 'swordsmanship', band: '3-4', file: raw('beat-default16-sword-high') },
+    { section: 'swordsmanship', band: '1-2.9', file: raw('beat-default16-sword-mid') },
+    { section: 'swordsmanship', band: '0-0.9', file: raw('beat-default16-sword-low') },
+  ]
+  FINALS = [
+    { slot: 'low_average', file: raw('finalknight-default16-low-average') },
+    { slot: 'average', file: raw('finalknight-default16-average') },
+    { slot: 'high_average', file: raw('finalknight-default16-high-average') },
+  ]
+  LOGO_RAW = raw('logo-default16-wordmark')
 }
 
 // ---- pixel pipeline (same core as the approved sample pass) -----------------------------------
@@ -350,7 +414,7 @@ async function extractHalf(image, half) {
 async function placeScaled(sprite, scale, canvasW, canvasH, outFile, { bottomMargin = 0, centered = false } = {}) {
   const w = Math.max(1, Math.round(sprite.width * scale))
   const h = Math.max(1, Math.round(sprite.height * scale))
-  const resized = await sharp(sprite.buffer).resize(w, h).png().toBuffer()
+  const resized = await sharp(sprite.buffer).resize(w, h, RESAMPLE).png().toBuffer()
   const left = Math.round((canvasW - w) / 2)
   const top = centered ? Math.round((canvasH - h) / 2) : canvasH - h - bottomMargin
   await sharp({ create: { width: canvasW, height: canvasH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
@@ -387,26 +451,26 @@ const label = (text, width = 400) =>
   )
 
 async function renderSectionFrame(section) {
-  const base = await sharp(path.join(RAW, BACKGROUNDS.find((b) => b.dir === section).file)).resize(1280, 720, { fit: 'cover' })
+  const base = await sharp(path.join(RAW, BACKGROUNDS.find((b) => b.dir === section).file)).resize(1280, 720, { fit: 'cover', ...RESAMPLE })
   const composites = []
-  const targetIdle = await sharp(path.join(OUT, section, 'target.idle@2x.png')).resize(200, 200).png().toBuffer()
+  const targetIdle = await sharp(path.join(OUT, section, 'target.idle@2x.png')).resize(200, 200, RESAMPLE).png().toBuffer()
   for (let i = 0; i < 5; i += 1) {
     composites.push({ input: targetIdle, left: 70 + i * 235, top: 198 })
   }
   // impact mock on the middle target: hit pose + effect + stuck projectile (archery only)
-  const hit = await sharp(path.join(OUT, section, 'target.hit@2x.png')).resize(200, 200).png().toBuffer()
-  const effect = await sharp(path.join(OUT, section, 'hitEffect@2x.png')).resize(200, 200).png().toBuffer()
+  const hit = await sharp(path.join(OUT, section, 'target.hit@2x.png')).resize(200, 200, RESAMPLE).png().toBuffer()
+  const effect = await sharp(path.join(OUT, section, 'hitEffect@2x.png')).resize(200, 200, RESAMPLE).png().toBuffer()
   composites.push({ input: hit, left: 70 + 2 * 235, top: 198 }, { input: effect, left: 70 + 2 * 235, top: 198 })
   if (section === 'archery') {
-    const projectile = await sharp(path.join(OUT, section, 'projectile@2x.png')).resize({ width: 74 }).png().toBuffer()
+    const projectile = await sharp(path.join(OUT, section, 'projectile@2x.png')).resize({ width: 74, ...RESAMPLE }).png().toBuffer()
     const meta = await sharp(projectile).metadata()
     const cx = 70 + 2 * 235 + 100
     const cy = 198 + 94
     composites.push({ input: projectile, left: Math.round(cx - 37), top: Math.round(cy - meta.height / 2) })
   }
-  composites.push({ input: await sharp(path.join(OUT, section, 'knight.idle@2x.png')).resize(300, 260).png().toBuffer(), left: 300, top: 430 })
+  composites.push({ input: await sharp(path.join(OUT, section, 'knight.idle@2x.png')).resize(300, 260, RESAMPLE).png().toBuffer(), left: 300, top: 430 })
   if (section === 'archery') {
-    composites.push({ input: await sharp(path.join(OUT, section, 'projectile@2x.png')).resize(120, 34).png().toBuffer(), left: 560, top: 300 })
+    composites.push({ input: await sharp(path.join(OUT, section, 'projectile@2x.png')).resize(120, 34, RESAMPLE).png().toBuffer(), left: 560, top: 300 })
   }
   await base.composite(composites).png().toFile(review(section))
   log(`review-${section}.png (game geometry)`)
@@ -418,7 +482,7 @@ async function renderSectionStrip(section) {
   const poses = ['idle', 'attack', 'celebrate', 'fail']
   for (const [i, pose] of poses.entries()) {
     composites.push({
-      input: await sharp(path.join(OUT, section, `knight.${pose}@2x.png`)).resize(300, 260).png().toBuffer(),
+      input: await sharp(path.join(OUT, section, `knight.${pose}@2x.png`)).resize(300, 260, RESAMPLE).png().toBuffer(),
       left: 40 + i * 310,
       top: 16,
     })
@@ -430,16 +494,16 @@ async function renderSectionStrip(section) {
     ['hitEffect@2x.png', 'effect'],
   ]
   for (const [i, [file]] of targets.entries()) {
-    composites.push({ input: await sharp(path.join(OUT, section, file)).resize(200, 200).png().toBuffer(), left: 40 + i * 215, top: 310 })
+    composites.push({ input: await sharp(path.join(OUT, section, file)).resize(200, 200, RESAMPLE).png().toBuffer(), left: 40 + i * 215, top: 310 })
   }
   composites.push({ input: label('target idle — hit — effect (200×200)', 500), left: 40, top: 516 })
   if (section === 'archery') {
-    composites.push({ input: await sharp(path.join(OUT, section, 'projectile@2x.png')).resize(120, 34).png().toBuffer(), left: 700, top: 393 })
+    composites.push({ input: await sharp(path.join(OUT, section, 'projectile@2x.png')).resize(120, 34, RESAMPLE).png().toBuffer(), left: 700, top: 393 })
     composites.push({ input: label('projectile (120×34 box)', 300), left: 700, top: 440 })
   }
   for (const [i, band] of ['3-4', '1-2.9', '0-0.9'].entries()) {
     composites.push({
-      input: await sharp(path.join(OUT, section, `animation.${band}@2x.png`)).resize(360, 170).png().toBuffer(),
+      input: await sharp(path.join(OUT, section, `animation.${band}@2x.png`)).resize(360, 170, RESAMPLE).png().toBuffer(),
       left: 40 + i * 400,
       top: 536,
     })
@@ -453,12 +517,12 @@ async function renderTitleResults() {
   const base = sharp({ create: { width: 1280, height: 720, channels: 4, background: { r: 16, g: 16, b: 32, alpha: 1 } } })
   const composites = [
     { input: Buffer.from(`<svg width="720" height="200"><rect width="720" height="200" rx="18" fill="rgba(16,16,26,0.82)" stroke="rgba(243,240,231,0.22)"/></svg>`), left: 280, top: 40 },
-    { input: await sharp(path.join(OUT, 'title', 'logo@2x.png')).resize(340, 120).png().toBuffer(), left: 470, top: 80 },
+    { input: await sharp(path.join(OUT, 'title', 'logo@2x.png')).resize(340, 120, RESAMPLE).png().toBuffer(), left: 470, top: 80 },
     { input: label('logo (340×120, on the title card)', 400), left: 470, top: 246 },
   ]
   for (const [i, slot] of ['low_average', 'average', 'high_average'].entries()) {
     composites.push({
-      input: await sharp(path.join(OUT, 'results', `finalKnight.${slot}@2x.png`)).resize(132, 132).png().toBuffer(),
+      input: await sharp(path.join(OUT, 'results', `finalKnight.${slot}@2x.png`)).resize(132, 132, RESAMPLE).png().toBuffer(),
       left: 402 + i * 172,
       top: 300,
     })
@@ -473,7 +537,7 @@ async function renderTitleResults() {
   ]
   for (const [i, [dir, name]] of thumbs.entries()) {
     composites.push({
-      input: await sharp(path.join(OUT, dir, `${name}@2x.png`)).resize(230, 129).png().toBuffer(),
+      input: await sharp(path.join(OUT, dir, `${name}@2x.png`)).resize(230, 129, RESAMPLE).png().toBuffer(),
       left: 40 + i * 245,
       top: 520,
     })
@@ -514,12 +578,12 @@ async function main() {
     (KNIGHT.w - 2) / sprite.width,
   ) * rawHeight)
   // One global constant per set: the largest raw body height that fits every pose (M8 rule).
-  // The electric set is capped at the default set's 545 so a re-skin can never render the knight
-  // bigger than the originals (M11: same global knight scale — the sets swap with no layout change).
-  const K = SET === 'electric' ? Math.min(545, Math.floor(Math.min(...fits))) : Math.floor(Math.min(...fits))
-  log(`global knight constant K=${K}${SET === 'electric' ? ' (capped at the default set\u2019s 545)' : ''} (limits per pose: ${keyedPoses.filter((p) => p.pose === 'idle').map((p) => p.sprite.limits.join('/')).join('  ')})`)
-  if (SET === 'electric' && Math.abs(K - 545) > 0.02 * 545) {
-    log(`  !! electric K=${K} drifts more than 2% from the default set's 545 — check the sheet framing`)
+  // Re-skinned sets are capped at the default set's 545 so a re-skin can never render the knight
+  // bigger than the originals (M11 electric, M12 default16 — the sets swap with no layout change).
+  const K = SET !== 'default' ? Math.min(545, Math.floor(Math.min(...fits))) : Math.floor(Math.min(...fits))
+  log(`global knight constant K=${K}${SET !== 'default' ? ' (capped at the default set\u2019s 545)' : ''} (limits per pose: ${keyedPoses.filter((p) => p.pose === 'idle').map((p) => p.sprite.limits.join('/')).join('  ')})`)
+  if (SET !== 'default' && Math.abs(K - 545) > 0.02 * 545) {
+    log(`  !! ${SET} K=${K} drifts more than 2% from the default set's 545 — check the sheet framing`)
   }
   for (const pose of keyedPoses) {
     const scale = K / pose.rawHeight
@@ -538,6 +602,11 @@ async function main() {
   }
 
   // --- targets: idle and hit share the pair's min fit (no pop between states).
+  // M12 (default16): pixel-art raws leave the paper white enclosed between the tripod legs — the
+  // hole-clearing pass punches those pockets (measured: 4 components, 7–23k px each, all in the
+  // legs region; the target face has no enclosed white ≥ 50 px). Other sets keep their proven
+  // no-holes keying.
+  const targetKeyOptions = SET === 'default16' ? { holes: true } : {}
   for (const target of TARGETS) {
     const halves = []
     if (target.parts) {
@@ -546,7 +615,7 @@ async function main() {
         continue
       }
       for (const part of target.parts) {
-        halves.push({ state: part.state, sprite: await spriteOf(await loadRgba(path.join(RAW, part.file))) })
+        halves.push({ state: part.state, sprite: await spriteOf(await loadRgba(path.join(RAW, part.file)), targetKeyOptions) })
       }
     } else {
       if (!target.sheet) {
@@ -557,7 +626,7 @@ async function main() {
       const width = Math.floor(image.width / 2)
       for (const [index, state] of target.states.entries()) {
         const part = await extractHalf(image, { index, width })
-        halves.push({ state, sprite: await spriteOf(part) })
+        halves.push({ state, sprite: await spriteOf(part, targetKeyOptions) })
       }
     }
     const shared = Math.min(...halves.map(({ sprite }) => fitScale(sprite, TARGET.w, TARGET.h, TARGET.margin)))
@@ -634,7 +703,7 @@ async function main() {
       log(`  skip ${background.dir}/background — raw not generated yet`)
       continue
     }
-    await sharp(path.join(RAW, background.file)).resize(2560, 1440, { fit: 'cover' }).png().toFile(path.join(OUT, background.dir, 'background@2x.png'))
+    await sharp(path.join(RAW, background.file)).resize(2560, 1440, { fit: 'cover', ...RESAMPLE }).png().toFile(path.join(OUT, background.dir, 'background@2x.png'))
     log(`  ${background.dir}/background@2x.png  2560×1440`)
   }
 

@@ -5,7 +5,7 @@
 > This file is how work survives a session boundary: assume you lose the chat and write for your
 > future self. Update it at the end of every milestone.
 
-Last updated: 2026-10-13
+Last updated: 2026-10-14
 
 ## Milestone status
 
@@ -22,7 +22,7 @@ Last updated: 2026-10-13
 | M9 | Re-skin proof (`electric`) | **complete** | `electric` shipped through the real `/admin` UI (duplicate → rename → partial upload → save), per-slot fallback proven by scripted playthroughs with one *and* three assets; operator guide is `docs/modes.md` (see log below) |
 | M10 | Hardening | **complete** | README rewritten for a new developer; docker-compose is postgres-only; favicon added (no more console 404); a11y pass (keyboard-only full playthrough e2e + recovery-screen focus); error-state e2e (answer failure, resume failure, unknown `/result` 404); all gates green — `pnpm test` 74 int + 15 e2e (see log below) |
 | M11 | Electric art set | **complete** | full set generated (sample gated first, as in M8), processed with `process-set.mjs electric` (`art/electric/**`, 40 files / 43 slots, knight cap K=540), wired via slug-aware `pnpm art:wire electric`; `/electric` verified end to end with **zero** `default` URLs and zero placeholders; questions byte-identical to `default`; per-slot fallback re-proven on a throwaway scratch mode; all gates green — lint/tsc 0, 74 int + 15 e2e (see log below) |
-| M12 | Grounded targets + `default16` | **not started** | Added to `QODER.md` §8 on 2026-10-14 (settled decisions #8, #9). (a) archery targets float above the ground plane in `/default` and `/electric` — **diagnose geometry vs art before regenerating** (`TARGET_TOP = 198` + `TARGET_SIZE = 200` → box bottom at stage Y 398; measure the sprites' alpha bboxes and the backgrounds' ground Y first); (b) record the measured baseline in the `game-assets` skill so it cannot recur; (c) full 16-bit pixel-art set on slug `default16`, sample gate first, `pnpm art:wire default16`. Watch `sharp`'s default resize kernel — it will blur pixel art. |
+| M12 | Grounded targets + `default16` | **complete** | (a) float diagnosed as **background** geometry (sprites were already correct — feet row 395, box bottom 398 vs contract 396): default archery −24px → bg 789, electric archery v3 +48px → 793 (v2 floated +73.5px), electric sword −11px → 792. (b) measured contract in the game-assets skill (`GROUND_BASELINE_Y = 396` = 55% bg height, band 786–796) + ground sentence in every prompt; permanent asserted check `scripts/art/check-ground.mjs` green on all 3 sets. (c) `default16` 16-bit re-skin: sample-gated, 31 raws, nearest-neighbour pipeline (K=533), wired via **new** `pnpm mode:dup default16` + `pnpm art:wire default16` with the clean-state re-seed proven (43/43); sword bg repaired without regen (props painted out + 13px shift → 787.5). `verify-default16.mjs`: zero `default`/`electric` URLs in any scene, zero placeholders, byte-identical questions. Gates green — lint/tsc 0, 74 int + 15 e2e (see log below) |
 
 ## M1 verification log (2026-10-13)
 
@@ -559,6 +559,76 @@ dev`, so no billed call): `pnpm lint` **0** ✓ · `pnpm exec tsc --noEmit` **0*
 re-checked: `/electric` plays end to end on electric art with zero `default` URLs and zero
 placeholders reachable, `/default` is unchanged (default e2e playthrough + byte-identity check),
 per-slot fallback is proven on the scratch mode, and questions were not touched.
+
+
+## M12 completion log (2026-10-14)
+
+**(a) Diagnose before regenerating — the geometry was right, the art was wrong.** The floating
+report traced to neither sprites nor game constants: `TARGET_TOP = 198` + `TARGET_SIZE = 200`
+puts the target box bottom at stage Y 398 against a contract of 396, and all 12 target sprites
+across both sets already bottom-anchor at feet row 395 (stage 395.5). The backgrounds' ground
+junctions were off, each measured with the probe that actually reads that image (no single
+detector works on all of them — dark-on-dark electric art defeats colour matching, fence rails and
+tree bands defeat naive edge votes; each method is recorded with its measured value in
+`check-ground.mjs`): default archery 834 → 24px up-shift → **789**; electric archery v2 at 938
+(+73.5px of float — the worst) → v3 regen under the new contract still drew 61% → 48px shift →
+**793**; electric sword 812 → 11px shift → **792**. All 12 target sprites verified byte-identical
+before/after; the shifts are deterministic pixel moves with edge-tiled fill (throwaway scripts,
+deleted). Every other scene measured in-band or is exempt (boxing bags hang; title/results have no
+standing row).
+
+**(b) The contract is written where it cannot recur.** `GROUND_BASELINE_Y = 396` (stage) = **55%
+of background height** (bg px 792 of 1440; pass band 786–796) now lives in the game-assets skill,
+and every background/target prompt in `docs/art-prompts.md` carries the verbatim ground sentence.
+The enforcement is a **permanent asserted check**, not an eyeball: `scripts/art/check-ground.mjs`
+runs all sets (or one) and exits 1 on any miss — exact alpha-bbox sprite assertions (standing feet
+at canvas row 395; hanging chains idle ≤ row 12, swung hit ≤ row 28) plus the per-scene calibrated
+junction probes. Boxing/title/results SKIP with a documented reason each, never a silent pass.
+
+**(c) `default16` — the 16-bit re-skin, one consistent pass under the contract.** Sample gate
+first, as in M8/M11 (compare sheet `docs/art-sample/compare-default16-archery.png` + review
+frames `review-default16-*.png`; user-approved), then 31 raws total over both passes, processed
+with `node scripts/art/process-set.mjs default16`. Pipeline deltas: **nearest-neighbour
+resampling everywhere** (sharp's default lanczos blurs pixel art into mush — the M12 brief called
+this out); white-key/fringe/pocket passes unchanged. The global knight constant landed at **K=533**
+(vs 545 default — the pixel-art raws draw her ~2% smaller; logged and accepted as imperceptible).
+Regeneration history: everything generated clean except `background-default16-sword` — v1 drew the
+lawn from 40.6% of height, v2 ("lawn fills the lower half") 34.9%, regen3 53.1% but with a dummy +
+target butt + shield stands baked into the target band. Fixed without another regen: props painted
+out with same-row flat wall/lawn blits (invisible on flat pixel colour), then a 13px down-shift
+with flat sky fill → junction bg px **787.5**. Rejected raws deleted (M12(a) precedent).
+
+**Mode seeding scripted — `pnpm mode:dup <slug>`.** New `src/seed/duplicate-mode.ts`: the scripted
+equivalent of the admin "duplicate default" (copies theme / title copy / sections / questions / ai
+verbatim, strips nested row ids, **never** asset relations; idempotent-refuses existing slugs).
+**Clean-state proof**: the `default16` mode and all 40 `default16-*` media docs were deleted, then
+`pnpm mode:dup default16` + `pnpm art:wire default16` re-wired from nothing — "All 43 slots
+wired." Media collection is now 120 docs (40 × 3 sets).
+
+**Verification** — `scripts/art/verify-default16.mjs` is the M11 script with the isolation claim
+widened: `/default16` ships into a collection carrying **both** prior sets, so it asserts zero
+reachable URLs from the **union** of all 80 foreign docs (default ∪ electric) across `<img>` srcs
+and CSS backgrounds, in every scene; questions byte-identical; duplicated gold theme (`#d4af37`)
+and `default16` kicker live; dead-QWEN fallback report arrives; zero placeholders. Full
+15-question playthrough all green — screenshots `docs/modes-proof/verify-m12-*.png` reviewed
+(title, archery, boxing attack, results).
+
+**Docs** — `docs/art-prompts.md` gained the **default16 appendix** (pixel-art style anchor
+verbatim, per-slot prompts verbatim keyed by raw filename, regeneration history with measured
+numbers, pixel-art pipeline deltas); `check-ground.mjs` and `verify-default16.mjs` are permanent
+under `scripts/art/`.
+
+**Gates** (all against the **dead endpoint** server, `QWEN_BASE_URL=http://127.0.0.1:9/v1 pnpm
+dev`): `node scripts/art/check-ground.mjs` all assertions pass (3 sets) ✓ · `pnpm lint` **0**
+(one unused-import warning in the new check fixed; the remaining warning lived in a throwaway
+script now deleted) ✓ · `pnpm exec tsc --noEmit` **0** ✓ · `pnpm test:int` **74 passed** ✓ ·
+`pnpm test:e2e` **15 passed** with `PW_CHANNEL=chrome` ✓ (first full-suite run flaked once on a
+cold `/admin` compile — the isolated spec re-ran 3/3, then the full suite re-ran clean 15/15).
+Done-when re-checked: no target floats in any section of `/default`, `/electric`, `/default16` —
+asserted by `check-ground.mjs`, not eyeballed; `/default16` plays end to end on its own art with
+zero `default`/`electric` URLs and zero placeholders; `art:wire default16` seeds from a clean
+state; `/default` + `/electric` are unchanged except the M12(a) background shifts; the baseline
+constant is in the skill; all §8 gates green.
 
 
 ## Plan (approved 2026-10-13; historical — see Decisions)

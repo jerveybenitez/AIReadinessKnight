@@ -1,5 +1,6 @@
 // M11 gate tool — render one section's committed art from two sets side by side (default on the
-// left, electric on the right) at the game's real render scale, for a human approval pass.
+// left, the candidate set on the right) at the game's real render scale, for a human approval pass.
+// M12: the candidate set is a CLI arg, so the default16 gate reuses the same sheet.
 //
 // The game-geometry frame reproduces the same composites as process-set.mjs's review frame
 // (targets at their slots, hit + effect overlay on the middle target, projectile, idle knight),
@@ -7,9 +8,9 @@
 // their 300×260 box scale, targets/effect/projectile at their box scales, the three band beats.
 // A closing text row lists the placed sprite sizes for the pixel-for-pixel sanity check.
 //
-//   node scripts/art/compare-sets.mjs [section]     (default: archery)
+//   node scripts/art/compare-sets.mjs [section] [setB]     (default: archery electric)
 //
-// Output: docs/art-sample/compare-electric-<section>.png
+// Output: docs/art-sample/compare-<setB>-<section>.png
 
 import { existsSync } from 'node:fs'
 import path from 'node:path'
@@ -17,10 +18,10 @@ import sharp from 'sharp'
 
 const ROOT = process.cwd()
 const REVIEW = path.join(ROOT, 'docs', 'art-sample')
-const SETS = ['default', 'electric']
+const SETS = ['default', process.argv[3] ?? 'electric']
 const section = process.argv[2] ?? 'archery'
 if (!['archery', 'boxing', 'swordsmanship'].includes(section)) {
-  console.error(`unknown section "${section}" — usage: node scripts/art/compare-sets.mjs [archery|boxing|swordsmanship]`)
+  console.error(`unknown section "${section}" — usage: node scripts/art/compare-sets.mjs [archery|boxing|swordsmanship] [setB]`)
   process.exit(1)
 }
 
@@ -124,18 +125,23 @@ for (const [i, set] of SETS.entries()) {
 }
 y += 200 + 18
 
-composites.push({ input: label('band beats — 3-4 · 1-2.9 · 0-0.9 (360×170 slot)', width - 2 * PAD), left: PAD, top: y })
-y += 24
-for (const [i, set] of SETS.entries()) {
-  for (const [j, band] of ['3-4', '1-2.9', '0-0.9'].entries()) {
-    composites.push({
-      input: await sharp(art(set, `animation.${band}@2x.png`)).resize({ width: 204 }).png().toBuffer(),
-      left: i * COL + PAD + j * 209,
-      top: y,
-    })
+const bands = ['3-4', '1-2.9', '0-0.9']
+// sample-gated sets (e.g. default16 pre-full-pass) may lack some beats — only show bands every set has
+const bandsToShow = bands.filter((band) => SETS.every((set) => existsSync(art(set, `animation.${band}@2x.png`))))
+if (bandsToShow.length > 0) {
+  composites.push({ input: label(`band beats — ${bandsToShow.join(' · ')} (360×170 slot)`, width - 2 * PAD), left: PAD, top: y })
+  y += 24
+  for (const [i, set] of SETS.entries()) {
+    for (const [j, band] of bandsToShow.entries()) {
+      composites.push({
+        input: await sharp(art(set, `animation.${band}@2x.png`)).resize({ width: 204 }).png().toBuffer(),
+        left: i * COL + PAD + j * 209,
+        top: y,
+      })
+    }
   }
+  y += 120
 }
-y += 120
 
 // ---- pixel-for-pixel sanity row ----------------------------------------------------------------
 const sizes = async (set) => [
@@ -144,14 +150,14 @@ const sizes = async (set) => [
   `celebrate ${await bboxOf(art(set, 'knight.celebrate@2x.png'))}`,
   `fail ${await bboxOf(art(set, 'knight.fail@2x.png'))}`,
 ].join('  ·  ')
-composites.push({ input: label(`knight content size — default: ${await sizes('default')}`, width - 2 * PAD), left: PAD, top: y })
-y += 22
-composites.push({ input: label(`knight content size — electric: ${await sizes('electric')}`, width - 2 * PAD), left: PAD, top: y })
-y += 22
+for (const set of SETS) {
+  composites.push({ input: label(`knight content size — ${set}: ${await sizes(set)}`, width - 2 * PAD), left: PAD, top: y })
+  y += 22
+}
 composites.push({ input: label('targets stay on their 400×400 canvases at the same anchor (bottom-centre, margin 4) — the layout geometry is unchanged.', width - 2 * PAD, '#9aa4b2'), left: PAD, top: y })
 y += 30
 
-const out = path.join(REVIEW, `compare-electric-${section}.png`)
+const out = path.join(REVIEW, `compare-${SETS[1]}-${section}.png`)
 await sharp({ create: { width, height: y, channels: 4, background: { r: 14, g: 14, b: 22, alpha: 1 } } })
   .composite(composites)
   .png()
