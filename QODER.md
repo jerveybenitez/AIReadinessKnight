@@ -257,6 +257,28 @@ mid-run, and never while watching a background paint in behind the targets.
 - The loading screen follows §3.6 like any other scene: landscape, keyboard-safe, reduced-motion
   respected, and it announces itself to assistive tech rather than being a silent blank stage.
 
+**Two kinds of waiting, two different affordances.** Do not use one treatment for both:
+
+| Wait | Known length? | Treatment |
+| --- | --- | --- |
+| Asset preload (§3.8) | Yes — the asset count is known up front | **Determinate progress bar**, advancing on real completions, plus a looping animation so the screen is alive |
+| QWEN report (§5) | No — 6–9s typical, up to the 25s timeout, ~1s on fallback | **Indeterminate rotating loader**, attached to the existing status line |
+
+A determinate bar for an unknowable wait has to lie, and a spinner for a knowable one throws away
+information the player would rather have. Match the affordance to what is actually known.
+
+Constraints on both:
+
+- **The loading screen cannot wait on the thing it is loading.** Its own animation must be pure
+  CSS or inline SVG — never a sprite from the set being fetched. A loading screen that loads is
+  the bug it exists to prevent.
+- **Reduced motion applies.** The bar still fills (that is information, not decoration), but
+  spinning and looping collapse to a static or gently-stated equivalent.
+- **Both announce politely.** The report spinner attaches to the existing `aria-live` status line
+  in `Results.tsx` rather than replacing it — a decorative spinner is `aria-hidden`, and the words
+  carry the meaning for anyone who cannot see it.
+- Neither may trap focus or block the keyboard.
+
 ---
 
 ## 4. Scoring — settled, implement exactly this
@@ -629,13 +651,24 @@ cache headers so a replay, a back-navigation or a second visit costs nothing. Ve
 sends today before changing anything.
 
 **(c) Preload the first scene behind a loading screen** — title plus intake plus section 1, not all
-43 slots. Determinate progress from real request completions, a timeout that starts the game
-anyway, and the §3.8 rules.
+43 slots. Per §3.8: a **determinate progress bar** driven by real request completions (not a timed
+animation), a **looping idle animation** so the screen reads as alive rather than hung, a timeout
+that starts the game anyway, and reduced-motion handling. The animation must be pure CSS or inline
+SVG — it cannot depend on any asset this screen is waiting for. The knight's silhouette, the mode's
+accent colour and simple shapes are enough; this is not another art pass and it must not add a
+generated asset.
 
 **(d) Prefetch the rest during play.** Sections 2 and 3 fetch while the player answers section 1;
 the results assets fetch during section 3. A scene transition must never block on a download. The
 existing scene machine knows exactly where the player is — use it rather than inventing a second
 notion of progress.
+
+**(e) Give the report wait a rotating loader.** `Results.tsx` already shows a status line in an
+`aria-live="polite"` region while the report generates (M7); add an indeterminate spinner beside
+it rather than replacing it. It must cover the realistic range — 6–9s against a live endpoint, up
+to the 25s timeout, ~1s on the fallback path — so after a few seconds the wait needs *words*, not
+just motion: a spinner alone at 20 seconds reads as broken. Reuse the existing status copy and
+retry affordance; this is a visual addition, not a rework of M7's state machine.
 
 **Re-wiring is part of the job, not an afterthought.** Changing encodings changes filenames, and
 `art:wire` finds-or-creates media by filename — so all three modes need re-wiring, `REPLACE=1`
@@ -644,8 +677,9 @@ URLs and will need updating. Re-run every mode's verification afterwards: a mode
 back to `default` because its re-encoded upload didn't bind is exactly the failure this invites.
 
 *Done when:* `art/`'s delivered weight per mode is reported before and after (state the real
-numbers), `/default`, `/electric` and `/default16` each start behind a loading screen that ends on
-real completion, **no background or sprite visibly pops in during a playthrough on a throttled
+numbers), `/default`, `/electric` and `/default16` each start behind a loading screen whose bar
+tracks real completions and whose animation runs without depending on a loaded asset, the report
+wait shows a rotating loader that resolves on both the live and fallback paths, **no background or sprite visibly pops in during a playthrough on a throttled
 connection** (test it throttled — on localhost everything looks instant and you will prove
 nothing), a stalled asset still lets the game start, `check-ground.mjs` and all three verify
 scripts pass, `default16` is confirmed un-smeared at 1:1, and all §8 gates are green.
