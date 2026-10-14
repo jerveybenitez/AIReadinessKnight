@@ -9,6 +9,7 @@ import { ProgressNav } from '../components/ProgressNav'
 import { SpeechBubble } from '../components/SpeechBubble'
 import { Sprite } from '../components/Sprite'
 import { Target } from '../components/Target'
+import { prefetchFromSection } from '../preload'
 import type { Answer, ResolvedMode } from '../types'
 
 /**
@@ -103,6 +104,13 @@ export function QuestionScene({
   useEffect(() => {
     audioEngine.setMusic('music-gameplay')
   }, [])
+
+  // M14(d): the rest of the mode arrives while the player answers — this section's end-beat
+  // extras plus every later section (results join during the last). Idempotent; a resumed run
+  // landing mid-mode prefetches from wherever the player actually is.
+  useEffect(() => {
+    prefetchFromSection(mode, sectionIndex)
+  }, [mode, sectionIndex])
 
   // The attack beat, in sound: section attack cue when the choreography starts, the impact
   // exactly at the projectile's landing moment (the same FLIGHT_MS the CSS uses, ADR 0003), and

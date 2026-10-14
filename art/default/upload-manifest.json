@@ -1,0 +1,206 @@
+{
+  "slug": "default",
+  "lossless": false,
+  "files": {
+    "title/background@2x.png": {
+      "upload": "title-background@2x.60c70b0f.webp",
+      "bytes": 119796,
+      "sourceBytes": 5387206
+    },
+    "title/logo@2x.png": {
+      "upload": "title-logo@2x.c6a0b83b.webp",
+      "bytes": 43788,
+      "sourceBytes": 195315
+    },
+    "results/background@2x.png": {
+      "upload": "results-background@2x.df449268.webp",
+      "bytes": 115808,
+      "sourceBytes": 3893536
+    },
+    "results/finalKnight.low_average@2x.png": {
+      "upload": "results-finalKnight.low_average@2x.6d7fe2f9.webp",
+      "bytes": 12322,
+      "sourceBytes": 43660
+    },
+    "results/finalKnight.average@2x.png": {
+      "upload": "results-finalKnight.average@2x.e2dbf86b.webp",
+      "bytes": 9556,
+      "sourceBytes": 44001
+    },
+    "results/finalKnight.high_average@2x.png": {
+      "upload": "results-finalKnight.high_average@2x.a60191dd.webp",
+      "bytes": 18862,
+      "sourceBytes": 64210
+    },
+    "archery/background@2x.png": {
+      "upload": "archery-background@2x.c3b9bf21.webp",
+      "bytes": 89808,
+      "sourceBytes": 3226412
+    },
+    "archery/knight.idle@2x.png": {
+      "upload": "archery-knight.idle@2x.c3ea5353.webp",
+      "bytes": 26710,
+      "sourceBytes": 154120
+    },
+    "archery/knight.attack@2x.png": {
+      "upload": "archery-knight.attack@2x.984cdf7f.webp",
+      "bytes": 33108,
+      "sourceBytes": 167250
+    },
+    "archery/knight.celebrate@2x.png": {
+      "upload": "archery-knight.celebrate@2x.0d5c6ee1.webp",
+      "bytes": 29566,
+      "sourceBytes": 133557
+    },
+    "archery/knight.fail@2x.png": {
+      "upload": "archery-knight.fail@2x.29fe4da5.webp",
+      "bytes": 21986,
+      "sourceBytes": 120480
+    },
+    "archery/target.idle@2x.png": {
+      "upload": "archery-target.idle@2x.712f171d.webp",
+      "bytes": 20160,
+      "sourceBytes": 124805
+    },
+    "archery/target.hit@2x.png": {
+      "upload": "archery-target.hit@2x.bc7f59c1.webp",
+      "bytes": 22520,
+      "sourceBytes": 144789
+    },
+    "archery/projectile@2x.png": {
+      "upload": "archery-projectile@2x.0e2207e4.webp",
+      "bytes": 5018,
+      "sourceBytes": 15336
+    },
+    "archery/hitEffect@2x.png": {
+      "upload": "archery-hitEffect@2x.3a95d204.webp",
+      "bytes": 38104,
+      "sourceBytes": 158129
+    },
+    "archery/animation.3-4@2x.png": {
+      "upload": "archery-animation.3-4@2x.62f00daf.webp",
+      "bytes": 26028,
+      "sourceBytes": 176623
+    },
+    "archery/animation.1-2.9@2x.png": {
+      "upload": "archery-animation.1-2.9@2x.89aa01ca.webp",
+      "bytes": 36558,
+      "sourceBytes": 173233
+    },
+    "archery/animation.0-0.9@2x.png": {
+      "upload": "archery-animation.0-0.9@2x.809f75c8.webp",
+      "bytes": 33086,
+      "sourceBytes": 197452
+    },
+    "boxing/background@2x.png": {
+      "upload": "boxing-background@2x.a0a58a1e.webp",
+      "bytes": 153816,
+      "sourceBytes": 4490379
+    },
+    "boxing/knight.idle@2x.png": {
+      "upload": "boxing-knight.idle@2x.385c51fb.webp",
+      "bytes": 24574,
+      "sourceBytes": 140981
+    },
+    "boxing/knight.attack@2x.png": {
+      "upload": "boxing-knight.attack@2x.8d98da64.webp",
+      "bytes": 24754,
+      "sourceBytes": 144532
+    },
+    "boxing/knight.celebrate@2x.png": {
+      "upload": "boxing-knight.celebrate@2x.bed8269f.webp",
+      "bytes": 25270,
+      "sourceBytes": 139296
+    },
+    "boxing/knight.fail@2x.png": {
+      "upload": "boxing-knight.fail@2x.f6ae1ad2.webp",
+      "bytes": 21422,
+      "sourceBytes": 131637
+    },
+    "boxing/target.idle@2x.png": {
+      "upload": "boxing-target.idle@2x.ae41f553.webp",
+      "bytes": 9150,
+      "sourceBytes": 72392
+    },
+    "boxing/target.hit@2x.png": {
+      "upload": "boxing-target.hit@2x.9228cec7.webp",
+      "bytes": 15976,
+      "sourceBytes": 85673
+    },
+    "boxing/hitEffect@2x.png": {
+      "upload": "boxing-hitEffect@2x.1b5e6d82.webp",
+      "bytes": 41450,
+      "sourceBytes": 178381
+    },
+    "boxing/animation.3-4@2x.png": {
+      "upload": "boxing-animation.3-4@2x.229e2bcf.webp",
+      "bytes": 47770,
+      "sourceBytes": 165120
+    },
+    "boxing/animation.1-2.9@2x.png": {
+      "upload": "boxing-animation.1-2.9@2x.7c379757.webp",
+      "bytes": 12064,
+      "sourceBytes": 40716
+    },
+    "boxing/animation.0-0.9@2x.png": {
+      "upload": "boxing-animation.0-0.9@2x.cfc71564.webp",
+      "bytes": 12020,
+      "sourceBytes": 58822
+    },
+    "swordsmanship/background@2x.png": {
+      "upload": "swordsmanship-background@2x.8447d25a.webp",
+      "bytes": 131722,
+      "sourceBytes": 4084404
+    },
+    "swordsmanship/knight.idle@2x.png": {
+      "upload": "swordsmanship-knight.idle@2x.db53803d.webp",
+      "bytes": 25056,
+      "sourceBytes": 157911
+    },
+    "swordsmanship/knight.attack@2x.png": {
+      "upload": "swordsmanship-knight.attack@2x.06fbf813.webp",
+      "bytes": 26834,
+      "sourceBytes": 157839
+    },
+    "swordsmanship/knight.celebrate@2x.png": {
+      "upload": "swordsmanship-knight.celebrate@2x.7cd89390.webp",
+      "bytes": 28228,
+      "sourceBytes": 160143
+    },
+    "swordsmanship/knight.fail@2x.png": {
+      "upload": "swordsmanship-knight.fail@2x.971e4557.webp",
+      "bytes": 23778,
+      "sourceBytes": 150542
+    },
+    "swordsmanship/target.idle@2x.png": {
+      "upload": "swordsmanship-target.idle@2x.bdf7172c.webp",
+      "bytes": 15532,
+      "sourceBytes": 119043
+    },
+    "swordsmanship/target.hit@2x.png": {
+      "upload": "swordsmanship-target.hit@2x.548c34e0.webp",
+      "bytes": 22792,
+      "sourceBytes": 132006
+    },
+    "swordsmanship/hitEffect@2x.png": {
+      "upload": "swordsmanship-hitEffect@2x.168e8e5a.webp",
+      "bytes": 24890,
+      "sourceBytes": 112832
+    },
+    "swordsmanship/animation.3-4@2x.png": {
+      "upload": "swordsmanship-animation.3-4@2x.af3bf056.webp",
+      "bytes": 32188,
+      "sourceBytes": 145406
+    },
+    "swordsmanship/animation.1-2.9@2x.png": {
+      "upload": "swordsmanship-animation.1-2.9@2x.9349cbb1.webp",
+      "bytes": 10992,
+      "sourceBytes": 50779
+    },
+    "swordsmanship/animation.0-0.9@2x.png": {
+      "upload": "swordsmanship-animation.0-0.9@2x.ff6a2f21.webp",
+      "bytes": 33312,
+      "sourceBytes": 167663
+    }
+  }
+}

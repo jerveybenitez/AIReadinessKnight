@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import type { ReportHorizon, ReportState } from '../report'
 import type { ResolvedMode } from '../types'
 
@@ -53,6 +54,7 @@ export function ReportPanel({ mode, state, phase, onRetry, onBack }: ReportPanel
 
       {phase === 'loading' ? (
         <p className="ark-report-loading" role="status">
+          <LoadingSpinner />
           The scribe is writing your report…
         </p>
       ) : null}

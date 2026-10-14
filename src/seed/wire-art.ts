@@ -7,18 +7,35 @@
  * Idempotent: every file is uploaded to the media collection under a unique filename, found-or-
  * created by filename, then the mode's asset slots are updated to point at the media docs.
  * Non-default slugs are namespaced (`electric-archery-knight.idle@2x.png`) so they can never
- * collide with — or accidentally reuse — the `default` mode's media. `--replace` re-uploads files
- * that changed on disk (deletes the old media doc first). `target.hover` intentionally reuses the
- * idle media — the CSS lift and glow do the rest. Nothing else on the mode (copy, questions,
- * theme, ai) is touched.
+ * collide with — or accidentally reuse — the `default` mode's media. `target.hover` intentionally
+ * reuses the idle media — the CSS lift and glow do the rest. Nothing else on the mode (copy,
+ * questions, theme, ai) is touched.
+ *
+ * M14 — the staged file is a DELIVERY ENCODE, not the source PNG:
+ *   - default / electric  → lossy WebP q80 (alpha preserved; a 1280×720 stage does not need
+ *     multi-megabyte PNGs — QODER.md M14(a)).
+ *   - default16           → LOSSLESS WebP: lossy encoding smears hard pixel edges (pixel-art set);
+ *     every file is proven lossless by an in-memory decode-and-compare against the PNG source
+ *     before it is uploaded, and the run fails loudly on any mismatch.
+ * The upload filename is CONTENT-HASHED (`archery-background@2x.1a2b3c4d.webp`) so an immutable
+ * cache (M14(b)) can never serve stale bytes after a re-wire: new bytes → new hash → new URL;
+ * the old URL keeps serving the old (valid) bytes it was cached with. After wiring, any media doc
+ * in this set's namespace whose filename is not in the current manifest is an orphan of an earlier
+ * encode and is DELETED (old bytes must not accumulate in `media/`).
+ * `--replace` (M14 semantics check): with hashed names a same-name doc already holds identical
+ * bytes (same hash), so find-or-create is a no-op; --replace forces the delete+create anyway.
+ * The resulting slot→filename map is written to `art/<slug>/upload-manifest.json` (committed) —
+ * verify-electric.mjs / verify-default16.mjs read upload names from it.
  */
 import 'dotenv/config'
 
-import { copyFile, mkdir } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
 import { getPayload } from 'payload'
+import sharp from 'sharp'
 
 import config from '../payload.config'
 import type { Mode } from '../payload-types'
@@ -83,8 +100,42 @@ const FILES: ArtFile[] = [
 
 const payload = await getPayload({ config })
 
+// M14(a): lossy q80 for the painterly sets; LOSSLESS for the pixel-art set. sharp's WebP encoder
+// preserves alpha in both modes, so transparent sprites stay transparent. `exact: true` matters:
+// libwebp otherwise discards the RGB values under fully-transparent pixels (invisible, but the
+// round-trip proof below is bit-exact, and "lossless" should mean lossless).
+const LOSSLESS = SLUG === 'default16'
+const webpOptions = LOSSLESS ? { lossless: true, exact: true } : { quality: 80 }
+
+/** Encode one source PNG to the delivery WebP. Returns buffer, sizes and the content hash. */
+async function encodeDelivery(entry: ArtFile) {
+  const sourcePath = path.join(ART_ROOT, entry.dir, entry.file)
+  const sourceBuffer = await readFile(sourcePath)
+  const encoded = await sharp(sourceBuffer).webp(webpOptions).toBuffer()
+  // The pixel-art contract: lossless means bit-identical RGBA when decoded back. Prove it before
+  // anything uploads — a smeared edge shipped to production would be exactly the M14 caution.
+  if (LOSSLESS) {
+    const [srcRaw, outRaw] = await Promise.all([
+      sharp(sourceBuffer).ensureAlpha().raw().toBuffer(),
+      sharp(encoded).ensureAlpha().raw().toBuffer(),
+    ])
+    if (!srcRaw.equals(outRaw)) {
+      throw new Error(`lossless round-trip FAILED for ${entry.dir}/${entry.file} — pixels changed`)
+    }
+  }
+  const hash = createHash('sha1').update(encoded).digest('hex').slice(0, 8)
+  return { encoded, hash, sourceBytes: sourceBuffer.byteLength }
+}
+
+const manifest: Record<string, { upload: string; bytes: number; sourceBytes: number }> = {}
+
 async function mediaId(entry: ArtFile): Promise<number> {
-  const uploadName = `${UPLOAD_PREFIX}${entry.dir}-${entry.file}`
+  const slotKey = `${entry.dir}/${entry.file}`
+  const { encoded, hash, sourceBytes } = await encodeDelivery(entry)
+  const slot = `${entry.dir}-${entry.file.replace(/\.png$/, '')}`
+  const uploadName = `${UPLOAD_PREFIX}${slot}.${hash}.webp`
+  manifest[slotKey] = { upload: uploadName, bytes: encoded.byteLength, sourceBytes }
+
   const existing = await payload.find({
     collection: 'media',
     where: { filename: { equals: uploadName } },
@@ -99,7 +150,7 @@ async function mediaId(entry: ArtFile): Promise<number> {
   }
   await mkdir(STAGE, { recursive: true })
   const staged = path.join(STAGE, uploadName)
-  await copyFile(path.join(ART_ROOT, entry.dir, entry.file), staged)
+  await writeFile(staged, encoded)
   const doc = await payload.create({
     collection: 'media',
     data: { alt: `${SET_TITLE} — ${entry.alt.slice(DEFAULT_ALT_PREFIX.length)}` },
@@ -109,7 +160,7 @@ async function mediaId(entry: ArtFile): Promise<number> {
   return doc.id
 }
 
-console.log(`Uploading ${FILES.length} files from art/${SLUG}/ …`)
+console.log(`Uploading ${FILES.length} files from art/${SLUG}/ (webp ${LOSSLESS ? 'lossless' : 'q80'}) …`)
 const ids = new Map<string, number>()
 for (const entry of FILES) {
   ids.set(`${entry.dir}/${entry.file}`, await mediaId(entry))
@@ -118,6 +169,41 @@ const id = (key: string): number => {
   const value = ids.get(key)
   if (!value) throw new Error(`art file missing from the table: ${key}`)
   return value
+}
+
+// Orphan cleanup (M14): delete media docs in THIS set's namespace whose filename is not in the
+// current manifest — leftovers of an earlier encode (different hash). media/ must not accumulate
+// dead bytes; the old URLs stay valid in any browser cache for the life of that cache entry, which
+// is exactly the immutable-cache contract.
+{
+  const keep = new Set(Object.values(manifest).map((m) => m.upload))
+  const inNamespace = (filename: string) =>
+    SLUG === 'default'
+      ? !filename.startsWith('electric-') && !filename.startsWith('default16-')
+      : filename.startsWith(`${SLUG}-`)
+  const all = await payload.find({ collection: 'media', limit: 200, depth: 0, overrideAccess: true })
+  for (const doc of all.docs) {
+    const filename = doc.filename
+    if (typeof filename !== 'string') continue
+    if (keep.has(filename) || !inNamespace(filename)) continue
+    // Only art-shaped names — never touch anything a human uploaded under an odd name.
+    if (!filename.includes('@2x.') || !/\.(png|webp)$/.test(filename)) continue
+    console.log(`  orphan: deleting media/${filename}`)
+    await payload.delete({ collection: 'media', id: doc.id, overrideAccess: true })
+  }
+}
+
+// The committed manifest — verify-electric.mjs / verify-default16.mjs read upload names from here.
+await writeFile(
+  path.join(ART_ROOT, 'upload-manifest.json'),
+  `${JSON.stringify({ slug: SLUG, lossless: LOSSLESS, files: manifest }, null, 2)}\n`,
+)
+{
+  const delivered = Object.values(manifest).reduce((n, m) => n + m.bytes, 0)
+  const source = Object.values(manifest).reduce((n, m) => n + m.sourceBytes, 0)
+  console.log(
+    `delivered weight: ${(delivered / 1024 / 1024).toFixed(2)} MB webp vs ${(source / 1024 / 1024).toFixed(2)} MB png source (art/${SLUG}/)`,
+  )
 }
 
 const found = await payload.find({

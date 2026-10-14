@@ -27,12 +27,16 @@
  *   node scripts/art/verify-electric.mjs
  */
 import { chromium } from '@playwright/test'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const BASE = process.env.VERIFY_URL ?? 'http://localhost:3000/electric'
 const OUT = path.resolve(process.cwd(), 'docs/modes-proof')
 mkdirSync(OUT, { recursive: true })
+
+// M14: uploads are content-hashed WebP (`electric-title-background@2x.1a2b3c4d.webp`) — the exact
+// name lives in the committed manifest written by `pnpm art:wire electric`.
+const manifest = JSON.parse(readFileSync(path.resolve(process.cwd(), 'art/electric/upload-manifest.json'), 'utf8'))
 
 let failures = 0
 const notes = []
@@ -51,40 +55,48 @@ const urlOf = (filename) => {
   if (found.length === 0) throw new Error(`media "${filename}" is missing from the database — run \`pnpm art:wire electric\``)
   return decodeURIComponent(found[0].url)
 }
+const upload = (slot) => {
+  const entry = manifest.files[slot]
+  if (!entry) throw new Error(`art/electric/upload-manifest.json has no slot "${slot}"`)
+  return urlOf(entry.upload)
+}
 
 const ELE = {
-  titleBackground: urlOf('electric-title-background@2x.png'),
-  titleLogo: urlOf('electric-title-logo@2x.png'),
-  archeryBackground: urlOf('electric-archery-background@2x.png'),
-  archeryKnightIdle: urlOf('electric-archery-knight.idle@2x.png'),
-  archeryKnightAttack: urlOf('electric-archery-knight.attack@2x.png'),
-  archeryTargetIdle: urlOf('electric-archery-target.idle@2x.png'),
-  archeryTargetHit: urlOf('electric-archery-target.hit@2x.png'),
-  archeryProjectile: urlOf('electric-archery-projectile@2x.png'),
-  archeryHitEffect: urlOf('electric-archery-hitEffect@2x.png'),
-  archeryAnim129: urlOf('electric-archery-animation.1-2.9@2x.png'),
-  boxingBackground: urlOf('electric-boxing-background@2x.png'),
-  boxingKnightIdle: urlOf('electric-boxing-knight.idle@2x.png'),
-  boxingKnightAttack: urlOf('electric-boxing-knight.attack@2x.png'),
-  boxingKnightFail: urlOf('electric-boxing-knight.fail@2x.png'),
-  boxingTargetHit: urlOf('electric-boxing-target.hit@2x.png'),
-  boxingHitEffect: urlOf('electric-boxing-hitEffect@2x.png'),
-  boxingAnim09: urlOf('electric-boxing-animation.0-0.9@2x.png'),
-  swordBackground: urlOf('electric-swordsmanship-background@2x.png'),
-  swordKnightIdle: urlOf('electric-swordsmanship-knight.idle@2x.png'),
-  swordKnightAttack: urlOf('electric-swordsmanship-knight.attack@2x.png'),
-  swordKnightCelebrate: urlOf('electric-swordsmanship-knight.celebrate@2x.png'),
-  swordTargetHit: urlOf('electric-swordsmanship-target.hit@2x.png'),
-  swordHitEffect: urlOf('electric-swordsmanship-hitEffect@2x.png'),
-  swordAnim34: urlOf('electric-swordsmanship-animation.3-4@2x.png'),
-  resultsBackground: urlOf('electric-results-background@2x.png'),
-  resultsKnightAverage: urlOf('electric-results-finalKnight.average@2x.png'),
+  titleBackground: upload('title/background@2x.png'),
+  titleLogo: upload('title/logo@2x.png'),
+  archeryBackground: upload('archery/background@2x.png'),
+  archeryKnightIdle: upload('archery/knight.idle@2x.png'),
+  archeryKnightAttack: upload('archery/knight.attack@2x.png'),
+  archeryTargetIdle: upload('archery/target.idle@2x.png'),
+  archeryTargetHit: upload('archery/target.hit@2x.png'),
+  archeryProjectile: upload('archery/projectile@2x.png'),
+  archeryHitEffect: upload('archery/hitEffect@2x.png'),
+  archeryAnim129: upload('archery/animation.1-2.9@2x.png'),
+  boxingBackground: upload('boxing/background@2x.png'),
+  boxingKnightIdle: upload('boxing/knight.idle@2x.png'),
+  boxingKnightAttack: upload('boxing/knight.attack@2x.png'),
+  boxingKnightFail: upload('boxing/knight.fail@2x.png'),
+  boxingTargetHit: upload('boxing/target.hit@2x.png'),
+  boxingHitEffect: upload('boxing/hitEffect@2x.png'),
+  boxingAnim09: upload('boxing/animation.0-0.9@2x.png'),
+  swordBackground: upload('swordsmanship/background@2x.png'),
+  swordKnightIdle: upload('swordsmanship/knight.idle@2x.png'),
+  swordKnightAttack: upload('swordsmanship/knight.attack@2x.png'),
+  swordKnightCelebrate: upload('swordsmanship/knight.celebrate@2x.png'),
+  swordTargetHit: upload('swordsmanship/target.hit@2x.png'),
+  swordHitEffect: upload('swordsmanship/hitEffect@2x.png'),
+  swordAnim34: upload('swordsmanship/animation.3-4@2x.png'),
+  resultsBackground: upload('results/background@2x.png'),
+  resultsKnightAverage: upload('results/finalKnight.average@2x.png'),
 }
 
 // The full default media set: 43 slots over 40 files (hover reuses idle three times). If these
 // are not all present the no-fallback claim cannot be proven — and /default itself would be broken.
+// M14 note: default16 coexists in the collection since M12 — "not electric-" alone counts both
+// foreign sets (the M11 script predates default16). The foreign union is everything that is not
+// an electric-* upload: default AND default16.
 const defaultUrls = mediaDocs
-  .filter((d) => !d.filename.startsWith('electric-'))
+  .filter((d) => !d.filename.startsWith('electric-') && !d.filename.startsWith('default16-'))
   .map((d) => decodeURIComponent(d.url))
 if (defaultUrls.length !== 40) {
   throw new Error(`expected 40 default media docs, found ${defaultUrls.length} — is /default still fully wired?`)

@@ -5,10 +5,12 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { audioEngine } from './audio/engine'
 import { Stage } from './components/Stage'
 import { canGoBack, initialState, reduce, type GameState, type GameEvent } from './machine'
+import { preloadBlocking, preloadPlan } from './preload'
 import type { ReportState } from './report'
 import { clearRunId, createRun, fetchRun, readRunId, saveRunId, submitAnswer } from './run-client'
 import { scoreRun } from './scoring'
 import { IntakeScene, type IntakeFields } from './scenes/Intake'
+import { LoadingScene } from './scenes/Loading'
 import { QuestionScene, type QuestionAction } from './scenes/Question'
 import { ResultsScene } from './scenes/Results'
 import { SectionEndScene } from './scenes/SectionEnd'
@@ -34,6 +36,17 @@ interface RunMeta {
 }
 
 type Phase = { name: 'resuming' } | { name: 'ready' } | { name: 'resume-error'; message: string }
+
+/**
+ * The M14 asset gate: how many blocking URLs have settled and whether the gate is open. Runs in
+ * parallel with the run-resume (the mode prop is all it needs) so a fresh player and a resuming
+ * player both wait exactly once, for the shorter of the two.
+ */
+interface AssetGate {
+  done: number
+  total: number
+  ready: boolean
+}
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(
@@ -66,6 +79,32 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
   const [answerError, setAnswerError] = useState<string | null>(null)
   const [actionFor, setActionFor] = useState<QuestionAction | null>(null)
   const reducedMotion = usePrefersReducedMotion()
+
+  // M14(c): preload title + intake + section 1 behind the loading screen. The bar advances on
+  // real completions (errors count — a dead asset must not stall it) and a hard timeout opens the
+  // gate anyway: a loading screen that can trap a player is worse than no loading screen (§3.8).
+  // The timeout is overridable for the e2e stall test.
+  const [assets, setAssets] = useState<AssetGate>({ done: 0, total: 0, ready: false })
+  useEffect(() => {
+    const plan = preloadPlan(mode)
+    let cancelled = false
+    const override = (window as { __ARK_ASSET_TIMEOUT_MS__?: number }).__ARK_ASSET_TIMEOUT_MS__
+    const timeoutMs = typeof override === 'number' && override > 0 ? override : 15000
+    const open = () => {
+      if (!cancelled) setAssets((gate) => (gate.ready ? gate : { ...gate, ready: true }))
+    }
+    const timeout = window.setTimeout(open, timeoutMs)
+    preloadBlocking(plan, (done, total) => {
+      if (!cancelled) setAssets({ done, total, ready: done >= total })
+    }).then(() => {
+      window.clearTimeout(timeout)
+      open()
+    })
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [mode])
 
   // A failed answer write gets the error sound alongside its visible banner. Audio is a pure
   // announcement here — it never touches the retry path (§3.7: degrade, never block).
@@ -165,7 +204,8 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
 
   // Focus follows the scene: keyboard players land on the new screen's heading — including the
   // resume-error recovery screen, which a keyboard user must be able to act on. During the
-  // 'resuming' phase there is no heading to focus, so the query is simply a no-op.
+  // 'resuming' phase there is no heading to focus, so the query is simply a no-op. The asset gate
+  // is a dep so the title heading takes focus the moment the loading screen hands over (M14).
   const sceneRef = useRef<HTMLDivElement>(null)
   const sceneKey =
     state.scene.name === 'question'
@@ -173,7 +213,7 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
       : state.scene.name
   useEffect(() => {
     sceneRef.current?.querySelector<HTMLElement>('h1, h2')?.focus()
-  }, [sceneKey, phase.name])
+  }, [sceneKey, phase.name, assets.ready])
 
   const advance = useCallback(() => {
     setActionFor(null)
@@ -295,7 +335,15 @@ export function GameShell({ mode, initialRunId }: { mode: ResolvedMode; initialR
           </section>
         ) : null}
 
-        {phase.name === 'ready' ? renderScene() : null}
+        {phase.name === 'ready' ? (
+          assets.ready ? (
+            renderScene()
+          ) : (
+            // M14(c): the loading screen gates on real request completions (or the timeout);
+            // everything it shows is pure CSS/SVG — it cannot wait on the assets it loads for.
+            <LoadingScene mode={mode} done={assets.done} total={assets.total} />
+          )
+        ) : null}
 
         {answerError ? (
           <p className="ark-error-banner" role="alert">

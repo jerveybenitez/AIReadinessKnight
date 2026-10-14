@@ -26,12 +26,19 @@
 import 'dotenv/config'
 
 import { chromium } from '@playwright/test'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { getPayload } from 'payload'
 
 import config from '../../src/payload.config'
+
+// M14: uploads are content-hashed WebP — exact names come from the committed manifests written by
+// `pnpm art:wire` (electric for the one upload, default for every fallback slot).
+const manifestOf = (slug: string): Record<string, { upload: string }> =>
+  JSON.parse(readFileSync(path.resolve(process.cwd(), 'art', slug, 'upload-manifest.json'), 'utf8')).files
+const ELEC_FILES = manifestOf('electric')
+const DEF_FILES = manifestOf('default')
 
 const BASE = process.env.VERIFY_URL ?? 'http://localhost:3000'
 const SCRATCH_SLUG = 'scratch-fallback'
@@ -71,17 +78,22 @@ if (!defaultMode) {
   console.error('no "default" mode in the database — run `pnpm seed` first.')
   process.exit(1)
 }
+const targetIdleName = ELEC_FILES['archery/target.idle@2x.png']?.upload
+if (!targetIdleName) {
+  console.error('art/electric/upload-manifest.json has no "archery/target.idle@2x.png" slot.')
+  process.exit(1)
+}
 const targetIdle = (
   await payload.find({
     collection: 'media',
-    where: { filename: { equals: 'electric-archery-target.idle@2x.png' } },
+    where: { filename: { equals: targetIdleName } },
     limit: 1,
     depth: 0,
     overrideAccess: true,
   })
 ).docs[0]
 if (!targetIdle) {
-  console.error('media "electric-archery-target.idle@2x.png" is missing — run `pnpm art:wire electric` first.')
+  console.error(`media "${targetIdleName}" is missing — run \`pnpm art:wire electric\` first.`)
   process.exit(1)
 }
 
@@ -123,30 +135,35 @@ const mediaUrl = (filename: string): string => {
 // The single upload: inside a decoded src this string is unambiguous — the default's URL has
 // `archery-` between `/file/` and `target`, so it can never contain this needle.
 const ELEC = decodeURIComponent(targetIdle.url ?? mediaUrl(targetIdle.filename ?? ''))
+const def = (slot: string): string => {
+  const entry = DEF_FILES[slot]
+  if (!entry) throw new Error(`art/default/upload-manifest.json has no slot "${slot}"`)
+  return mediaUrl(entry.upload)
+}
 const DEF = {
-  archeryBackground: mediaUrl('archery-background@2x.png'),
-  archeryKnightIdle: mediaUrl('archery-knight.idle@2x.png'),
-  archeryTargetIdle: mediaUrl('archery-target.idle@2x.png'),
-  archeryTargetHit: mediaUrl('archery-target.hit@2x.png'),
-  archeryHitEffect: mediaUrl('archery-hitEffect@2x.png'),
-  archeryProjectile: mediaUrl('archery-projectile@2x.png'),
-  archeryAnim129: mediaUrl('archery-animation.1-2.9@2x.png'),
-  boxingBackground: mediaUrl('boxing-background@2x.png'),
-  boxingKnightIdle: mediaUrl('boxing-knight.idle@2x.png'),
-  boxingKnightFail: mediaUrl('boxing-knight.fail@2x.png'),
-  boxingTargetHit: mediaUrl('boxing-target.hit@2x.png'),
-  boxingHitEffect: mediaUrl('boxing-hitEffect@2x.png'),
-  boxingAnim09: mediaUrl('boxing-animation.0-0.9@2x.png'),
-  swordBackground: mediaUrl('swordsmanship-background@2x.png'),
-  swordKnightIdle: mediaUrl('swordsmanship-knight.idle@2x.png'),
-  swordKnightCelebrate: mediaUrl('swordsmanship-knight.celebrate@2x.png'),
-  swordTargetHit: mediaUrl('swordsmanship-target.hit@2x.png'),
-  swordHitEffect: mediaUrl('swordsmanship-hitEffect@2x.png'),
-  swordAnim34: mediaUrl('swordsmanship-animation.3-4@2x.png'),
-  titleBackground: mediaUrl('title-background@2x.png'),
-  titleLogo: mediaUrl('title-logo@2x.png'),
-  resultsKnightAverage: mediaUrl('results-finalKnight.average@2x.png'),
-  resultsBackground: mediaUrl('results-background@2x.png'),
+  archeryBackground: def('archery/background@2x.png'),
+  archeryKnightIdle: def('archery/knight.idle@2x.png'),
+  archeryTargetIdle: def('archery/target.idle@2x.png'),
+  archeryTargetHit: def('archery/target.hit@2x.png'),
+  archeryHitEffect: def('archery/hitEffect@2x.png'),
+  archeryProjectile: def('archery/projectile@2x.png'),
+  archeryAnim129: def('archery/animation.1-2.9@2x.png'),
+  boxingBackground: def('boxing/background@2x.png'),
+  boxingKnightIdle: def('boxing/knight.idle@2x.png'),
+  boxingKnightFail: def('boxing/knight.fail@2x.png'),
+  boxingTargetHit: def('boxing/target.hit@2x.png'),
+  boxingHitEffect: def('boxing/hitEffect@2x.png'),
+  boxingAnim09: def('boxing/animation.0-0.9@2x.png'),
+  swordBackground: def('swordsmanship/background@2x.png'),
+  swordKnightIdle: def('swordsmanship/knight.idle@2x.png'),
+  swordKnightCelebrate: def('swordsmanship/knight.celebrate@2x.png'),
+  swordTargetHit: def('swordsmanship/target.hit@2x.png'),
+  swordHitEffect: def('swordsmanship/hitEffect@2x.png'),
+  swordAnim34: def('swordsmanship/animation.3-4@2x.png'),
+  titleBackground: def('title/background@2x.png'),
+  titleLogo: def('title/logo@2x.png'),
+  resultsKnightAverage: def('results/finalKnight.average@2x.png'),
+  resultsBackground: def('results/background@2x.png'),
 }
 
 // Answer script: target index = score (0->4 left->right). Section means 1.8 / 0.6 / 3.6 -> all

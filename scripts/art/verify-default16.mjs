@@ -26,12 +26,16 @@
  *   node scripts/art/verify-default16.mjs
  */
 import { chromium } from '@playwright/test'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const BASE = process.env.VERIFY_URL ?? 'http://localhost:3000/default16'
 const OUT = path.resolve(process.cwd(), 'docs/modes-proof')
 mkdirSync(OUT, { recursive: true })
+
+// M14: uploads are content-hashed lossless WebP (`default16-title-background@2x.1a2b3c4d.webp`)
+// — the exact name lives in the committed manifest written by `pnpm art:wire default16`.
+const manifest = JSON.parse(readFileSync(path.resolve(process.cwd(), 'art/default16/upload-manifest.json'), 'utf8'))
 
 let failures = 0
 const notes = []
@@ -50,34 +54,39 @@ const urlOf = (filename) => {
   if (found.length === 0) throw new Error(`media "${filename}" is missing from the database — run \`pnpm art:wire default16\``)
   return decodeURIComponent(found[0].url)
 }
+const upload = (slot) => {
+  const entry = manifest.files[slot]
+  if (!entry) throw new Error(`art/default16/upload-manifest.json has no slot "${slot}"`)
+  return urlOf(entry.upload)
+}
 
 const D16 = {
-  titleBackground: urlOf('default16-title-background@2x.png'),
-  titleLogo: urlOf('default16-title-logo@2x.png'),
-  archeryBackground: urlOf('default16-archery-background@2x.png'),
-  archeryKnightIdle: urlOf('default16-archery-knight.idle@2x.png'),
-  archeryKnightAttack: urlOf('default16-archery-knight.attack@2x.png'),
-  archeryTargetIdle: urlOf('default16-archery-target.idle@2x.png'),
-  archeryTargetHit: urlOf('default16-archery-target.hit@2x.png'),
-  archeryProjectile: urlOf('default16-archery-projectile@2x.png'),
-  archeryHitEffect: urlOf('default16-archery-hitEffect@2x.png'),
-  archeryAnim129: urlOf('default16-archery-animation.1-2.9@2x.png'),
-  boxingBackground: urlOf('default16-boxing-background@2x.png'),
-  boxingKnightIdle: urlOf('default16-boxing-knight.idle@2x.png'),
-  boxingKnightAttack: urlOf('default16-boxing-knight.attack@2x.png'),
-  boxingKnightFail: urlOf('default16-boxing-knight.fail@2x.png'),
-  boxingTargetHit: urlOf('default16-boxing-target.hit@2x.png'),
-  boxingHitEffect: urlOf('default16-boxing-hitEffect@2x.png'),
-  boxingAnim09: urlOf('default16-boxing-animation.0-0.9@2x.png'),
-  swordBackground: urlOf('default16-swordsmanship-background@2x.png'),
-  swordKnightIdle: urlOf('default16-swordsmanship-knight.idle@2x.png'),
-  swordKnightAttack: urlOf('default16-swordsmanship-knight.attack@2x.png'),
-  swordKnightCelebrate: urlOf('default16-swordsmanship-knight.celebrate@2x.png'),
-  swordTargetHit: urlOf('default16-swordsmanship-target.hit@2x.png'),
-  swordHitEffect: urlOf('default16-swordsmanship-hitEffect@2x.png'),
-  swordAnim34: urlOf('default16-swordsmanship-animation.3-4@2x.png'),
-  resultsBackground: urlOf('default16-results-background@2x.png'),
-  resultsKnightAverage: urlOf('default16-results-finalKnight.average@2x.png'),
+  titleBackground: upload('title/background@2x.png'),
+  titleLogo: upload('title/logo@2x.png'),
+  archeryBackground: upload('archery/background@2x.png'),
+  archeryKnightIdle: upload('archery/knight.idle@2x.png'),
+  archeryKnightAttack: upload('archery/knight.attack@2x.png'),
+  archeryTargetIdle: upload('archery/target.idle@2x.png'),
+  archeryTargetHit: upload('archery/target.hit@2x.png'),
+  archeryProjectile: upload('archery/projectile@2x.png'),
+  archeryHitEffect: upload('archery/hitEffect@2x.png'),
+  archeryAnim129: upload('archery/animation.1-2.9@2x.png'),
+  boxingBackground: upload('boxing/background@2x.png'),
+  boxingKnightIdle: upload('boxing/knight.idle@2x.png'),
+  boxingKnightAttack: upload('boxing/knight.attack@2x.png'),
+  boxingKnightFail: upload('boxing/knight.fail@2x.png'),
+  boxingTargetHit: upload('boxing/target.hit@2x.png'),
+  boxingHitEffect: upload('boxing/hitEffect@2x.png'),
+  boxingAnim09: upload('boxing/animation.0-0.9@2x.png'),
+  swordBackground: upload('swordsmanship/background@2x.png'),
+  swordKnightIdle: upload('swordsmanship/knight.idle@2x.png'),
+  swordKnightAttack: upload('swordsmanship/knight.attack@2x.png'),
+  swordKnightCelebrate: upload('swordsmanship/knight.celebrate@2x.png'),
+  swordTargetHit: upload('swordsmanship/target.hit@2x.png'),
+  swordHitEffect: upload('swordsmanship/hitEffect@2x.png'),
+  swordAnim34: upload('swordsmanship/animation.3-4@2x.png'),
+  resultsBackground: upload('results/background@2x.png'),
+  resultsKnightAverage: upload('results/finalKnight.average@2x.png'),
 }
 
 // Three sets coexist in one media collection after M11+M12: 40 default + 40 electric + 40

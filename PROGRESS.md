@@ -24,7 +24,7 @@ Last updated: 2026-10-14
 | M11 | Electric art set | **complete** | full set generated (sample gated first, as in M8), processed with `process-set.mjs electric` (`art/electric/**`, 40 files / 43 slots, knight cap K=540), wired via slug-aware `pnpm art:wire electric`; `/electric` verified end to end with **zero** `default` URLs and zero placeholders; questions byte-identical to `default`; per-slot fallback re-proven on a throwaway scratch mode; all gates green — lint/tsc 0, 74 int + 15 e2e (see log below) |
 | M12 | Grounded targets + `default16` | **complete** | (a) float diagnosed as **background** geometry (sprites were already correct — feet row 395, box bottom 398 vs contract 396): default archery −24px → bg 789, electric archery v3 +48px → 793 (v2 floated +73.5px), electric sword −11px → 792. (b) measured contract in the game-assets skill (`GROUND_BASELINE_Y = 396` = 55% bg height, band 786–796) + ground sentence in every prompt; permanent asserted check `scripts/art/check-ground.mjs` green on all 3 sets. (c) `default16` 16-bit re-skin: sample-gated, 31 raws, nearest-neighbour pipeline (K=533), wired via **new** `pnpm mode:dup default16` + `pnpm art:wire default16` with the clean-state re-seed proven (43/43); sword bg repaired without regen (props painted out + 13px shift → 787.5). `verify-default16.mjs`: zero `default`/`electric` URLs in any scene, zero placeholders, byte-identical questions. Gates green — lint/tsc 0, 74 int + 15 e2e (see log below) |
 | M13 | Music + sound effects | **complete** | One shared static set for all modes, synthesised by `scripts/audio/generate-set.mjs` (deterministic, license-clean; no encoder exists here so WAV 22050 Hz mono — ADR 0005): 15 files, 2521 KB. One resolver `soundFor()` (§3.7, CMS-promotable) + one gesture-gated engine (music via looping `<audio>`, SFX via Web Audio, failures cached as silence). Mute button on every scene via Stage, keyboard-reachable, `ark:muted` persisted; automation starts muted. All cues wired incl. per-section attacks + band stings; 700 ms choreography untouched. `docs/audio.md` + ADR 0005. Gates green — lint/tsc 0, 74 int + 20 e2e (5 new audio specs; full-suite parallel flake not seen on re-run) (see log below) |
-| M14 | Asset weight + loading screen | **not started** | Added to `QODER.md` §3.8 + §8 on 2026-10-14 (settled decision #11). Root cause measured: `art/` is **64 MB / 120 PNGs** (default 25 MB, electric 22 MB, default16 18 MB) and every background is **3–5 MB**; `Media.ts` is a bare `upload: true` (no `formats`/`imageSizes`) so Payload serves the originals verbatim to a plain `<img>`. Order: (a) re-encode for delivery with `sharp` — **re-encode, not regenerate**; `default16` is pixel art and lossy will smear it; (b) cache headers (incl. M13's 2.5 MB `public/audio`); (c) loading screen for scene 1 only, bounded + escapable, with a **determinate progress bar** on real completions + a CSS/SVG-only idle animation (it cannot depend on the assets it waits for); (d) prefetch sections 2/3 during play; (e) **rotating loader** on the QWEN report wait, attached to the existing `aria-live` status line in `Results.tsx`, with words after a few seconds (covers 6–9s live, 25s timeout, ~1s fallback). Re-wiring all three modes is in scope — filenames change, `art:wire` binds by filename, verify scripts assert URLs. Test throttled; localhost proves nothing. |
+| M14 | Asset weight + loading screen | **complete** | Re-encoded for delivery, not regenerated: `art:wire` now WebP-encodes via `sharp` at wire time (q80 painterly sets; `{lossless, exact}` for default16 with a bit-exact `ensureAlpha().raw()` round-trip proof), content-hash in every filename → `Cache-Control: public, max-age=31536000, immutable` on media (audio folded in at `max-age=86400`). Delivered weight: default 24.32→1.40 MB, electric 21.61→1.11 MB, default16 17.22→8.47 MB (2×, lossless) — art/ sources untouched, `check-ground.mjs` green. Loading screen: `preload.ts` (blocking set = title + section 1, determinate bar on real completions, 15 s escape hatch, module-level in-flight map survives strict-mode double-effect) + asset-free CSS/SVG knight animation; sections 2/3 + results prefetch during play (`prefetchFromSection`); report wait gained an indeterminate spinner + words at 6 s in the existing aria-live line. All three modes re-wired (manifests at `art/<slug>/upload-manifest.json`), verify-electric/default16/fallback-scratch all read manifests + PASS. ADR 0006. Gates green — lint/tsc 0, 74 int + 25 e2e (5 new loading specs incl. throttled no-pop-in playthrough) (see log below) | Added to `QODER.md` §3.8 + §8 on 2026-10-14 (settled decision #11). Root cause measured: `art/` is **64 MB / 120 PNGs** (default 25 MB, electric 22 MB, default16 18 MB) and every background is **3–5 MB**; `Media.ts` is a bare `upload: true` (no `formats`/`imageSizes`) so Payload serves the originals verbatim to a plain `<img>`. Order: (a) re-encode for delivery with `sharp` — **re-encode, not regenerate**; `default16` is pixel art and lossy will smear it; (b) cache headers (incl. M13's 2.5 MB `public/audio`); (c) loading screen for scene 1 only, bounded + escapable, with a **determinate progress bar** on real completions + a CSS/SVG-only idle animation (it cannot depend on the assets it waits for); (d) prefetch sections 2/3 during play; (e) **rotating loader** on the QWEN report wait, attached to the existing `aria-live` status line in `Results.tsx`, with words after a few seconds (covers 6–9s live, 25s timeout, ~1s fallback). Re-wiring all three modes is in scope — filenames change, `art:wire` binds by filename, verify scripts assert URLs. Test throttled; localhost proves nothing. |
 
 ## M1 verification log (2026-10-13)
 
@@ -688,6 +688,79 @@ Done-when re-checked: full playthrough has music+effects at every cue (asserted 
 same set in `/electric` + `/default16` (identical URL sets); mute keyboard-reachable on every
 scene + survives reload; no console autoplay/decode errors on any route; corrupted file leaves the
 game fully playable; `docs/audio.md` + ADR 0005 explain every cue; all §8 gates green.
+
+## M14 completion log (2026-10-14)
+
+**(a) Weight.** Encoding moved into `src/seed/wire-art.ts` (ADR 0006): every PNG is WebP-encoded
+at wire time via `sharp` — `quality: 80` for the painterly sets, `{ lossless: true, exact: true }`
+for default16 (`exact` stops libwebp discarding RGB under alpha=0 pixels; without it the
+round-trip proof failed on `title/logo@2x.png`). default16's proof is mechanical, not hopeful:
+per file, `ensureAlpha().raw()` buffers of source vs encoded must be `Buffer.equals` or the wire
+aborts. `art/` sources are untouched, so `check-ground.mjs` and every M12 ground claim keep
+working. Delivered weight per mode (manifests at `art/<slug>/upload-manifest.json`, `files` maps
+source path → `{upload, bytes, sourceBytes}`): default 24.32 → **1.40 MB** (17×), electric
+21.61 → **1.11 MB** (19×), default16 17.22 → **8.47 MB** (2×, the price of bit-exact pixel art).
+Filenames carry a sha1-of-encoded 8-hex hash (`archery-background@2x.1a2b3c4d.webp`), which is what
+makes the cache policy below honest: new bytes → new URL.
+
+**(b) Cache.** Media: `Media.ts` `upload.modifyResponseHeaders` sets
+`Cache-Control: public, max-age=31536000, immutable` (verified live with curl — 85,896-byte WebP,
+`content-type: image/webp`). Audio: `next.config.ts` `headers()` gives `/audio/:path*` `max-age=
+86400` (stable names, but the deterministic generator could change bytes, so not immutable). Music
+loops were already gesture-gated lazy fetches (M13) and stay out of any blocking preload.
+
+**(c) Loading screen.** `src/game/preload.ts` builds a per-mode plan: blocking = title screen +
+section 1 only (background, knight idle/attack, target idle/hit, projectile, hit-effect, title
+bg/logo — ~10 URLs, not all 43); `GameShell` gates scene render on `preloadBlocking` with a real
+completion count (determinate bar, `aria-valuemin/max/now`, never a timed fake), a 15 s escape
+hatch that opens the game anyway (`__ARK_ASSET_TIMEOUT_MS__` test hook), and a module-level
+in-flight `Map<string, Promise>` so React strict mode's setup→cleanup→setup double-effect shares
+the same real requests instead of the second pass resolving instantly against a boolean "already
+requested" set (that bug reopened the gate early — pop-in returned — until the map). `Loading.tsx`
+is pure CSS/inline-SVG (helm silhouette + accent ring + bob), landscape, keyboard-safe,
+`aria-labelledby`; the global reduced-motion block already collapses its animations.
+
+**(d) Prefetch.** `Question.tsx` calls `prefetchFromSection(mode, sectionIndex)` on mount —
+sections 2/3 stream in during section 1, results assets during section 3. Idempotent via the same
+in-flight map; a resumed run prefetches from wherever the player actually is.
+
+**(e) Report wait.** `Results.tsx` + `ReportPanel.tsx` render an indeterminate `LoadingSpinner`
+(decorative, `aria-hidden`) inside the existing `aria-live` status line while the report loads;
+after 6 s the words change to "still writing — up to 25 seconds" (M7's state machine untouched).
+Covers live 6–9 s, the 25 s timeout, and the ~1 s fallback.
+
+**Re-wiring.** `art:wire` is find-or-create by hashed filename; `--replace` forces delete+create;
+orphan docs of earlier encodes are deleted at wire end. All three verify scripts now read the
+manifest instead of hard-coding `@2x.png` names, and verify-electric's "default set" filter
+learned to exclude `default16-` too (it predated default16 and was counting 80 docs as 40).
+
+**Verification.**
+- Gates on the dead QWEN endpoint: `pnpm lint` 0, `tsc --noEmit` 0, `pnpm test:int` 74 passed,
+  `PW_CHANNEL=chrome pnpm test:e2e` **25 passed / 0 failed**. (Two full-suite runs each flaked a
+  different single test — admin dashboard, then stalled-asset — each passing standalone and in the
+  final clean run; same class of flake as M13's, not M14 logic.)
+- `tests/e2e/loading.e2e.spec.ts` (5 new): gate shows/progresses/hands over (route-delayed media,
+  mid-flight partial bar asserted, then bar-unmount-as-done); stalled asset still starts via the
+  timeout hatch; **throttled no-pop-in playthrough** (800 ms route latency — every scene's images
+  fully settled the moment its targets enable); report-wait beats via a 9 s delayed report route
+  (spinner → long-wait words → offline fallback, spinner gone); cache headers asserted over HTTP.
+- `pnpm art:verify-electric`, `pnpm art:verify-default16`, `pnpm art:verify-fallback` all PASS;
+  `pnpm ground:check` (M12 contract) PASS untouched.
+- default16 un-smeared at 1:1: clips captured at `deviceScaleFactor 1`
+  (`docs/modes-proof/default16-1to1-{knight,target}.png` via
+  `scripts/art/capture-default16-1to1.mjs`) show hard pixel edges, no interpolation smear — the
+  visual half of the bit-exact round-trip proof.
+
+**Honest limits.** "No pop-in" is proven at 800 ms/request throttling on localhost; real-world
+first-load feel on a cold high-latency link is extrapolated, not measured. The 8× re-request cost
+of a full playthrough is gone, but the *blocking* set still costs one round-trip per URL before
+the title is clickable — on a very slow link that is the trade §3.8 explicitly chose over pop-in.
+
+Done-when re-checked: weights reported before AND after (above); all three modes start behind a
+loading screen with a real-completion bar and an asset-free animation; report wait shows the
+spinner on live and fallback paths; no pop-in at 800 ms throttling; a stalled asset still lets the
+game start; `check-ground.mjs` + all three verify scripts pass; default16 un-smeared at 1:1; all
+§8 gates green.
 
 ## Plan (approved 2026-10-13; historical — see Decisions)
 

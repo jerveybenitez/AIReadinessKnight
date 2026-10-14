@@ -1,0 +1,206 @@
+{
+  "slug": "default16",
+  "lossless": true,
+  "files": {
+    "title/background@2x.png": {
+      "upload": "default16-title-background@2x.99cc5535.webp",
+      "bytes": 1200570,
+      "sourceBytes": 3038386
+    },
+    "title/logo@2x.png": {
+      "upload": "default16-title-logo@2x.9377a251.webp",
+      "bytes": 79462,
+      "sourceBytes": 145332
+    },
+    "results/background@2x.png": {
+      "upload": "default16-results-background@2x.0a3fe947.webp",
+      "bytes": 1650072,
+      "sourceBytes": 3546105
+    },
+    "results/finalKnight.low_average@2x.png": {
+      "upload": "default16-results-finalKnight.low_average@2x.66e60a7a.webp",
+      "bytes": 61210,
+      "sourceBytes": 93131
+    },
+    "results/finalKnight.average@2x.png": {
+      "upload": "default16-results-finalKnight.average@2x.f854a2ae.webp",
+      "bytes": 38946,
+      "sourceBytes": 58124
+    },
+    "results/finalKnight.high_average@2x.png": {
+      "upload": "default16-results-finalKnight.high_average@2x.098e5794.webp",
+      "bytes": 35056,
+      "sourceBytes": 50601
+    },
+    "archery/background@2x.png": {
+      "upload": "default16-archery-background@2x.734f246a.webp",
+      "bytes": 1051850,
+      "sourceBytes": 2037206
+    },
+    "archery/knight.idle@2x.png": {
+      "upload": "default16-archery-knight.idle@2x.a6c22927.webp",
+      "bytes": 66742,
+      "sourceBytes": 125293
+    },
+    "archery/knight.attack@2x.png": {
+      "upload": "default16-archery-knight.attack@2x.f14a0d79.webp",
+      "bytes": 72220,
+      "sourceBytes": 132782
+    },
+    "archery/knight.celebrate@2x.png": {
+      "upload": "default16-archery-knight.celebrate@2x.fc25d0d0.webp",
+      "bytes": 65972,
+      "sourceBytes": 118345
+    },
+    "archery/knight.fail@2x.png": {
+      "upload": "default16-archery-knight.fail@2x.fb899de3.webp",
+      "bytes": 57052,
+      "sourceBytes": 105358
+    },
+    "archery/target.idle@2x.png": {
+      "upload": "default16-archery-target.idle@2x.c4a6292e.webp",
+      "bytes": 90026,
+      "sourceBytes": 183022
+    },
+    "archery/target.hit@2x.png": {
+      "upload": "default16-archery-target.hit@2x.9e4bed2f.webp",
+      "bytes": 89364,
+      "sourceBytes": 182917
+    },
+    "archery/projectile@2x.png": {
+      "upload": "default16-archery-projectile@2x.86c586ff.webp",
+      "bytes": 3872,
+      "sourceBytes": 5028
+    },
+    "archery/hitEffect@2x.png": {
+      "upload": "default16-archery-hitEffect@2x.56925dd0.webp",
+      "bytes": 92216,
+      "sourceBytes": 167853
+    },
+    "archery/animation.3-4@2x.png": {
+      "upload": "default16-archery-animation.3-4@2x.13e244f1.webp",
+      "bytes": 55922,
+      "sourceBytes": 101871
+    },
+    "archery/animation.1-2.9@2x.png": {
+      "upload": "default16-archery-animation.1-2.9@2x.0eb74118.webp",
+      "bytes": 109494,
+      "sourceBytes": 189936
+    },
+    "archery/animation.0-0.9@2x.png": {
+      "upload": "default16-archery-animation.0-0.9@2x.5a549fd9.webp",
+      "bytes": 70306,
+      "sourceBytes": 132186
+    },
+    "boxing/background@2x.png": {
+      "upload": "default16-boxing-background@2x.bd6e4b66.webp",
+      "bytes": 1533498,
+      "sourceBytes": 3252329
+    },
+    "boxing/knight.idle@2x.png": {
+      "upload": "default16-boxing-knight.idle@2x.877a5b9e.webp",
+      "bytes": 78554,
+      "sourceBytes": 147495
+    },
+    "boxing/knight.attack@2x.png": {
+      "upload": "default16-boxing-knight.attack@2x.98c7b4af.webp",
+      "bytes": 80476,
+      "sourceBytes": 150250
+    },
+    "boxing/knight.celebrate@2x.png": {
+      "upload": "default16-boxing-knight.celebrate@2x.63ee20fa.webp",
+      "bytes": 75304,
+      "sourceBytes": 144514
+    },
+    "boxing/knight.fail@2x.png": {
+      "upload": "default16-boxing-knight.fail@2x.4542f709.webp",
+      "bytes": 63022,
+      "sourceBytes": 126676
+    },
+    "boxing/target.idle@2x.png": {
+      "upload": "default16-boxing-target.idle@2x.fa1120bd.webp",
+      "bytes": 36078,
+      "sourceBytes": 70470
+    },
+    "boxing/target.hit@2x.png": {
+      "upload": "default16-boxing-target.hit@2x.2033fe61.webp",
+      "bytes": 43774,
+      "sourceBytes": 78091
+    },
+    "boxing/hitEffect@2x.png": {
+      "upload": "default16-boxing-hitEffect@2x.a52b3163.webp",
+      "bytes": 92426,
+      "sourceBytes": 178555
+    },
+    "boxing/animation.3-4@2x.png": {
+      "upload": "default16-boxing-animation.3-4@2x.56f937db.webp",
+      "bytes": 62366,
+      "sourceBytes": 104060
+    },
+    "boxing/animation.1-2.9@2x.png": {
+      "upload": "default16-boxing-animation.1-2.9@2x.1383f0e0.webp",
+      "bytes": 35192,
+      "sourceBytes": 65415
+    },
+    "boxing/animation.0-0.9@2x.png": {
+      "upload": "default16-boxing-animation.0-0.9@2x.f429f4ef.webp",
+      "bytes": 134126,
+      "sourceBytes": 194114
+    },
+    "swordsmanship/background@2x.png": {
+      "upload": "default16-swordsmanship-background@2x.f1920407.webp",
+      "bytes": 1110444,
+      "sourceBytes": 1919498
+    },
+    "swordsmanship/knight.idle@2x.png": {
+      "upload": "default16-swordsmanship-knight.idle@2x.939825c6.webp",
+      "bytes": 69278,
+      "sourceBytes": 137820
+    },
+    "swordsmanship/knight.attack@2x.png": {
+      "upload": "default16-swordsmanship-knight.attack@2x.087a77e3.webp",
+      "bytes": 66310,
+      "sourceBytes": 129277
+    },
+    "swordsmanship/knight.celebrate@2x.png": {
+      "upload": "default16-swordsmanship-knight.celebrate@2x.105da1cf.webp",
+      "bytes": 80450,
+      "sourceBytes": 142781
+    },
+    "swordsmanship/knight.fail@2x.png": {
+      "upload": "default16-swordsmanship-knight.fail@2x.ce917b4b.webp",
+      "bytes": 68912,
+      "sourceBytes": 128036
+    },
+    "swordsmanship/target.idle@2x.png": {
+      "upload": "default16-swordsmanship-target.idle@2x.ae475038.webp",
+      "bytes": 46340,
+      "sourceBytes": 92540
+    },
+    "swordsmanship/target.hit@2x.png": {
+      "upload": "default16-swordsmanship-target.hit@2x.87a2d997.webp",
+      "bytes": 56320,
+      "sourceBytes": 109064
+    },
+    "swordsmanship/hitEffect@2x.png": {
+      "upload": "default16-swordsmanship-hitEffect@2x.c3876267.webp",
+      "bytes": 85030,
+      "sourceBytes": 143689
+    },
+    "swordsmanship/animation.3-4@2x.png": {
+      "upload": "default16-swordsmanship-animation.3-4@2x.21122808.webp",
+      "bytes": 52412,
+      "sourceBytes": 96062
+    },
+    "swordsmanship/animation.1-2.9@2x.png": {
+      "upload": "default16-swordsmanship-animation.1-2.9@2x.bb9fc9e2.webp",
+      "bytes": 41458,
+      "sourceBytes": 78658
+    },
+    "swordsmanship/animation.0-0.9@2x.png": {
+      "upload": "default16-swordsmanship-animation.0-0.9@2x.8044be65.webp",
+      "bytes": 81784,
+      "sourceBytes": 156912
+    }
+  }
+}

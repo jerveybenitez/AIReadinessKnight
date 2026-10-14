@@ -1,0 +1,206 @@
+{
+  "slug": "electric",
+  "lossless": false,
+  "files": {
+    "title/background@2x.png": {
+      "upload": "electric-title-background@2x.834c5496.webp",
+      "bytes": 91652,
+      "sourceBytes": 3958640
+    },
+    "title/logo@2x.png": {
+      "upload": "electric-title-logo@2x.a84732f2.webp",
+      "bytes": 35526,
+      "sourceBytes": 228872
+    },
+    "results/background@2x.png": {
+      "upload": "electric-results-background@2x.6ab318c3.webp",
+      "bytes": 52564,
+      "sourceBytes": 3181387
+    },
+    "results/finalKnight.low_average@2x.png": {
+      "upload": "electric-results-finalKnight.low_average@2x.eb32815a.webp",
+      "bytes": 11778,
+      "sourceBytes": 42099
+    },
+    "results/finalKnight.average@2x.png": {
+      "upload": "electric-results-finalKnight.average@2x.c78fbc8c.webp",
+      "bytes": 11566,
+      "sourceBytes": 45497
+    },
+    "results/finalKnight.high_average@2x.png": {
+      "upload": "electric-results-finalKnight.high_average@2x.cebf3788.webp",
+      "bytes": 16492,
+      "sourceBytes": 59084
+    },
+    "archery/background@2x.png": {
+      "upload": "electric-archery-background@2x.5306dd7d.webp",
+      "bytes": 61480,
+      "sourceBytes": 3744728
+    },
+    "archery/knight.idle@2x.png": {
+      "upload": "electric-archery-knight.idle@2x.4614d3cc.webp",
+      "bytes": 26218,
+      "sourceBytes": 131730
+    },
+    "archery/knight.attack@2x.png": {
+      "upload": "electric-archery-knight.attack@2x.51def887.webp",
+      "bytes": 30020,
+      "sourceBytes": 138558
+    },
+    "archery/knight.celebrate@2x.png": {
+      "upload": "electric-archery-knight.celebrate@2x.1f85187c.webp",
+      "bytes": 33046,
+      "sourceBytes": 147183
+    },
+    "archery/knight.fail@2x.png": {
+      "upload": "electric-archery-knight.fail@2x.790d0b91.webp",
+      "bytes": 25116,
+      "sourceBytes": 131151
+    },
+    "archery/target.idle@2x.png": {
+      "upload": "electric-archery-target.idle@2x.a8190455.webp",
+      "bytes": 27364,
+      "sourceBytes": 165659
+    },
+    "archery/target.hit@2x.png": {
+      "upload": "electric-archery-target.hit@2x.744eb3ef.webp",
+      "bytes": 28852,
+      "sourceBytes": 173012
+    },
+    "archery/projectile@2x.png": {
+      "upload": "electric-archery-projectile@2x.73939817.webp",
+      "bytes": 5574,
+      "sourceBytes": 14232
+    },
+    "archery/hitEffect@2x.png": {
+      "upload": "electric-archery-hitEffect@2x.73e1f525.webp",
+      "bytes": 45260,
+      "sourceBytes": 189917
+    },
+    "archery/animation.3-4@2x.png": {
+      "upload": "electric-archery-animation.3-4@2x.9c6a0506.webp",
+      "bytes": 30732,
+      "sourceBytes": 154017
+    },
+    "archery/animation.1-2.9@2x.png": {
+      "upload": "electric-archery-animation.1-2.9@2x.03197576.webp",
+      "bytes": 31698,
+      "sourceBytes": 129198
+    },
+    "archery/animation.0-0.9@2x.png": {
+      "upload": "electric-archery-animation.0-0.9@2x.a7652c56.webp",
+      "bytes": 25770,
+      "sourceBytes": 133459
+    },
+    "boxing/background@2x.png": {
+      "upload": "electric-boxing-background@2x.d1cb5f26.webp",
+      "bytes": 68374,
+      "sourceBytes": 4038447
+    },
+    "boxing/knight.idle@2x.png": {
+      "upload": "electric-boxing-knight.idle@2x.51496bc5.webp",
+      "bytes": 22016,
+      "sourceBytes": 130306
+    },
+    "boxing/knight.attack@2x.png": {
+      "upload": "electric-boxing-knight.attack@2x.6fe2a04e.webp",
+      "bytes": 24508,
+      "sourceBytes": 139833
+    },
+    "boxing/knight.celebrate@2x.png": {
+      "upload": "electric-boxing-knight.celebrate@2x.0f363c3d.webp",
+      "bytes": 22910,
+      "sourceBytes": 122399
+    },
+    "boxing/knight.fail@2x.png": {
+      "upload": "electric-boxing-knight.fail@2x.6f5bcbfa.webp",
+      "bytes": 19934,
+      "sourceBytes": 116040
+    },
+    "boxing/target.idle@2x.png": {
+      "upload": "electric-boxing-target.idle@2x.99209e0a.webp",
+      "bytes": 11434,
+      "sourceBytes": 70918
+    },
+    "boxing/target.hit@2x.png": {
+      "upload": "electric-boxing-target.hit@2x.916b212a.webp",
+      "bytes": 14938,
+      "sourceBytes": 77467
+    },
+    "boxing/hitEffect@2x.png": {
+      "upload": "electric-boxing-hitEffect@2x.ad315fc9.webp",
+      "bytes": 53226,
+      "sourceBytes": 207843
+    },
+    "boxing/animation.3-4@2x.png": {
+      "upload": "electric-boxing-animation.3-4@2x.04726e86.webp",
+      "bytes": 25312,
+      "sourceBytes": 75802
+    },
+    "boxing/animation.1-2.9@2x.png": {
+      "upload": "electric-boxing-animation.1-2.9@2x.5b6b36b9.webp",
+      "bytes": 16094,
+      "sourceBytes": 66820
+    },
+    "boxing/animation.0-0.9@2x.png": {
+      "upload": "electric-boxing-animation.0-0.9@2x.d4f96734.webp",
+      "bytes": 10528,
+      "sourceBytes": 44016
+    },
+    "swordsmanship/background@2x.png": {
+      "upload": "electric-swordsmanship-background@2x.927510e8.webp",
+      "bytes": 63570,
+      "sourceBytes": 3631381
+    },
+    "swordsmanship/knight.idle@2x.png": {
+      "upload": "electric-swordsmanship-knight.idle@2x.3d20e481.webp",
+      "bytes": 24580,
+      "sourceBytes": 130778
+    },
+    "swordsmanship/knight.attack@2x.png": {
+      "upload": "electric-swordsmanship-knight.attack@2x.d071fd20.webp",
+      "bytes": 22822,
+      "sourceBytes": 119421
+    },
+    "swordsmanship/knight.celebrate@2x.png": {
+      "upload": "electric-swordsmanship-knight.celebrate@2x.b296ca0f.webp",
+      "bytes": 25170,
+      "sourceBytes": 121280
+    },
+    "swordsmanship/knight.fail@2x.png": {
+      "upload": "electric-swordsmanship-knight.fail@2x.978e2d9c.webp",
+      "bytes": 19892,
+      "sourceBytes": 113978
+    },
+    "swordsmanship/target.idle@2x.png": {
+      "upload": "electric-swordsmanship-target.idle@2x.3a872d2c.webp",
+      "bytes": 11702,
+      "sourceBytes": 105554
+    },
+    "swordsmanship/target.hit@2x.png": {
+      "upload": "electric-swordsmanship-target.hit@2x.0e2a798d.webp",
+      "bytes": 19470,
+      "sourceBytes": 128293
+    },
+    "swordsmanship/hitEffect@2x.png": {
+      "upload": "electric-swordsmanship-hitEffect@2x.20ca5741.webp",
+      "bytes": 18940,
+      "sourceBytes": 85797
+    },
+    "swordsmanship/animation.3-4@2x.png": {
+      "upload": "electric-swordsmanship-animation.3-4@2x.921a0ab6.webp",
+      "bytes": 27702,
+      "sourceBytes": 107789
+    },
+    "swordsmanship/animation.1-2.9@2x.png": {
+      "upload": "electric-swordsmanship-animation.1-2.9@2x.2582dda3.webp",
+      "bytes": 14324,
+      "sourceBytes": 88696
+    },
+    "swordsmanship/animation.0-0.9@2x.png": {
+      "upload": "electric-swordsmanship-animation.0-0.9@2x.1047fcfd.webp",
+      "bytes": 38706,
+      "sourceBytes": 168992
+    }
+  }
+}

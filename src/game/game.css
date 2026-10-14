@@ -994,6 +994,97 @@
   justify-content: center;
 }
 
+/* ---- loading screen (M14) ----
+   Everything here is pure CSS/SVG in the accent colour — no sprite from the set being fetched. */
+
+.ark-loading-scene {
+  align-items: center;
+  justify-content: center;
+}
+
+.ark-loading-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 560px;
+  padding: 36px 40px;
+  background: var(--ark-panel);
+  border: 1px solid var(--ark-line);
+  border-radius: 18px;
+  text-align: center;
+}
+
+.ark-loading-helm {
+  width: 96px;
+  height: 96px;
+  animation: ark-helm-bob 1.8s ease-in-out infinite;
+}
+
+.ark-loading-ring {
+  transform-origin: 60px 60px;
+  animation: ark-ring-spin 1.4s linear infinite;
+}
+
+.ark-loading-copy {
+  margin: 0;
+  opacity: 0.8;
+  font-size: 17px;
+}
+
+.ark-loading-bar {
+  width: 320px;
+  max-width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ark-line);
+  background: rgba(16, 16, 26, 0.55);
+  overflow: hidden;
+}
+
+.ark-loading-bar-fill {
+  height: 100%;
+  background: var(--ark-accent);
+  transition: width 0.2s ease-out;
+}
+
+.ark-loading-count {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+@keyframes ark-helm-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes ark-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- indeterminate spinner (M14(e)) — decorative; the adjoining words carry the meaning ---- */
+
+.ark-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--ark-accent);
+  border-top-color: transparent;
+  vertical-align: -3px;
+  animation: ark-ring-spin 0.9s linear infinite;
+}
+
 /* ---- answer error banner ---- */
 
 .ark-error-banner {

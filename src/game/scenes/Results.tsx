@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 
 import { audioEngine } from '../audio/engine'
 import { assetOr } from '../assets'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import { Sprite } from '../components/Sprite'
 import { clearRunId, requestReport } from '../run-client'
 import type { FinalBandKey } from '../constants'
@@ -55,6 +56,20 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
   const [view, setView] = useState<'scores' | 'report'>('scores')
   const [report, setReport] = useState<ReportState | null>(initialReport)
   const [reportPhase, setReportPhase] = useState<ReportPhase>(initialReport ? 'ready' : 'loading')
+
+  // M14(e): the report wait is unknowable in length (6–9s live, up to the 25s timeout, ~1s
+  // fallback), so the status line carries a spinner plus, after a few seconds, MORE words — a
+  // spinner alone at 20 seconds reads as broken (QODER.md M14). The swap lives in the existing
+  // aria-live line; polite announcement handles the rest.
+  const [longWait, setLongWait] = useState(false)
+  useEffect(() => {
+    // No reset path: reportPhase only ever leaves 'loading' (generation is one-shot per mount),
+    // and longWait is only read inside the loading branch of the status line, so a stale true
+    // can never surface. Arming only when loading keeps the rule happy (no sync setState here).
+    if (reportPhase !== 'loading') return
+    const timer = window.setTimeout(() => setLongWait(true), 6000)
+    return () => window.clearTimeout(timer)
+  }, [reportPhase])
 
   // The reckoning gets its own bed and reveal fanfare. This scene also renders on the permalink
   // route, where the fanfare fires only after the first interaction has unlocked audio (§3.7) —
@@ -132,7 +147,9 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
 
   const reportStatusLine =
     reportPhase === 'loading'
-      ? 'The scribe is writing your report…'
+      ? longWait
+        ? 'The scribe is still writing — this can take up to 25 seconds…'
+        : 'The scribe is writing your report…'
       : reportPhase === 'error'
         ? 'The report could not be written yet.'
         : report?.status === 'ready'
@@ -205,6 +222,7 @@ export function ResultsScene({ mode, knightName, runId, score, initialReport }: 
 
         <div className="ark-results-report-row">
           <p className="ark-results-report-status" aria-live="polite">
+            {reportPhase === 'loading' ? <LoadingSpinner /> : null}
             {reportStatusLine}
           </p>
           <button
